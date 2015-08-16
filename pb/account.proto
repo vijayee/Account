@@ -1,0 +1,30 @@
+package account;
+
+
+//Account Transaction
+message Transaction {
+	enum TransactionStatus {
+		Negotiations= 0;
+		Fulfilment= 1;
+		Completed= 2;
+		Canceled= 3;
+	}
+	enum TransactionPrivacy {
+		Public = 0;
+		Private= 1;
+	}
+  	//Creditor Identifier
+  	optional bytes Creditor=  1;
+ 	// Debitor Identifier
+  	optional bytes Debitor = 2;
+	//Transaction Status	
+	required uint64 Status = 3;
+	//Privacy Setting
+	required uint64 Privacy = 4;	
+	optional float Amount = 5;
+	// multihash of the Products purchased
+  	repeated bytes Products = 6;
+	//Epoch Times of Transaction
+	optional uint64 InitiationDate = 7;
+	optional uint64 CompletionDate = 8;   
+}
