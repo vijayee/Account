@@ -2,6 +2,7 @@ package Account
 import(
 	multihash "github.com/jbenet/go-multihash"
 	"time"
+	dag "github.com/ipfs/go-ipfs/merkledag"
 )
 const (
 	negotiations = iota
@@ -26,5 +27,6 @@ struct Transaction{
 	CompletionDate int64  
 }
 TransactionNode{
+	node *dag.Node
 	
 }
