@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	account "github.com/vijayee/Account"
+	"time"
 )
 
 func main() {
@@ -28,9 +29,17 @@ func main() {
 	pubEncoder := gob.NewEncoder(buffer)
 	pubEncoder.Encode(priv.PublicKey)
 	fmt.Println(buffer)
-	//account.GenerateUserKeys()
-	k := account.NewSecretKey()
+	private, public, err4 := account.GenerateUserKeyPair()
+	if err4 != nil {
+	}
+	k := account.NewSecretKey(32)
 	d := []byte("this as a string")
 	enc := account.EncryptPassword(d, k)
 	fmt.Println(enc)
+	now := time.Now()
+	unow := uint64(now.Unix())
+	buf, err5 := account.MarshalAccount(private, public, unow)
+	if err5 != nil {
+	}
+	fmt.Println(buf)
 }

@@ -16,7 +16,7 @@ package account
 
 import proto "github.com/gogo/protobuf/proto"
 import math "math"
-import crypto_pb "crypto_pb"
+import crypto_pb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -176,8 +176,8 @@ func (m *Transaction) GetCompletionDate() uint64 {
 type Account struct {
 	// Public Account Key
 	PubKey *crypto_pb.PublicKey `protobuf:"bytes,1,opt" json:"PubKey,omitempty"`
-	// Private Account ke
-	Privkey *crypto_pb.PrivateKey `protobuf:"bytes,2,opt" json:"Privkey,omitempty"`
+	// Private Account Key
+	PrivKey *crypto_pb.PrivateKey `protobuf:"bytes,2,opt" json:"PrivKey,omitempty"`
 	// Epoch Times of Creation Date
 	RegistrationDate *uint64 `protobuf:"varint,3,opt" json:"RegistrationDate,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
@@ -194,9 +194,9 @@ func (m *Account) GetPubKey() *crypto_pb.PublicKey {
 	return nil
 }
 
-func (m *Account) GetPrivkey() *crypto_pb.PrivateKey {
+func (m *Account) GetPrivKey() *crypto_pb.PrivateKey {
 	if m != nil {
-		return m.Privkey
+		return m.PrivKey
 	}
 	return nil
 }
