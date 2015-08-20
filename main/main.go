@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/gob"
 	"fmt"
+	account "github.com/vijayee/Account"
 )
 
 func main() {
@@ -27,5 +28,9 @@ func main() {
 	pubEncoder := gob.NewEncoder(buffer)
 	pubEncoder.Encode(priv.PublicKey)
 	fmt.Println(buffer)
-
+	//account.GenerateUserKeys()
+	k := account.NewSecretKey()
+	d := []byte("this as a string")
+	enc := account.EncryptPassword(d, k)
+	fmt.Println(enc)
 }

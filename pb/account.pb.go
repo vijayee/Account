@@ -10,11 +10,13 @@ It is generated from these files:
 
 It has these top-level messages:
 	Transaction
+	Account
 */
 package account
 
 import proto "github.com/gogo/protobuf/proto"
 import math "math"
+import crypto_pb "crypto_pb"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -167,6 +169,41 @@ func (m *Transaction) GetInitiationDate() uint64 {
 func (m *Transaction) GetCompletionDate() uint64 {
 	if m != nil && m.CompletionDate != nil {
 		return *m.CompletionDate
+	}
+	return 0
+}
+
+type Account struct {
+	// Public Account Key
+	PubKey *crypto_pb.PublicKey `protobuf:"bytes,1,opt" json:"PubKey,omitempty"`
+	// Private Account ke
+	Privkey *crypto_pb.PrivateKey `protobuf:"bytes,2,opt" json:"Privkey,omitempty"`
+	// Epoch Times of Creation Date
+	RegistrationDate *uint64 `protobuf:"varint,3,opt" json:"RegistrationDate,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Account) Reset()         { *m = Account{} }
+func (m *Account) String() string { return proto.CompactTextString(m) }
+func (*Account) ProtoMessage()    {}
+
+func (m *Account) GetPubKey() *crypto_pb.PublicKey {
+	if m != nil {
+		return m.PubKey
+	}
+	return nil
+}
+
+func (m *Account) GetPrivkey() *crypto_pb.PrivateKey {
+	if m != nil {
+		return m.Privkey
+	}
+	return nil
+}
+
+func (m *Account) GetRegistrationDate() uint64 {
+	if m != nil && m.RegistrationDate != nil {
+		return *m.RegistrationDate
 	}
 	return 0
 }

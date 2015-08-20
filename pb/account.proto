@@ -1,5 +1,5 @@
 package account;
-
+import "crypto_pb/crypto.proto";
 
 //Account Transaction
 message Transaction {
@@ -27,4 +27,12 @@ message Transaction {
 	//Epoch Times of Transaction
 	optional uint64 InitiationDate = 7;
 	optional uint64 CompletionDate = 8;   
+}
+message Account {	
+  	//Public Account Key
+  	optional crypto.pb.PublicKey PubKey=  1;
+ 	//Private Account ke
+  	optional crypto.pb.PrivateKey Privkey = 2;
+	//Epoch Times of Creation Date
+	optional uint64 RegistrationDate = 3;   
 }
