@@ -61,7 +61,7 @@ func Register(uname string, pword string) {
 	}
 }*/
 //Encode into a protobuf
-func MarshalAccount(priv crypto.PrivKey, pub crypto.PubKey, epTime uint64) ([]byte, error) {
+func MarshalAccount(priv crypto.PrivKey, pub crypto.PubKey, epTime int64) ([]byte, error) {
 	acc := new(pb.Account) // make proto account
 	acc.RegistrationDate = &epTime
 	//Gather up Private key
@@ -82,4 +82,37 @@ func MarshalAccount(priv crypto.PrivKey, pub crypto.PubKey, epTime uint64) ([]by
 	acc.PubKey = cPubK // add proto public key
 	//Do the damn thing
 	return proto.Marshal(acc) //Explosions
+}
+func UnMarshalAccount(data []byte) (crypto.PrivKey, crypto.PubKey, int64, error) {
+	acc := new(pb.Account) // make proto account
+	proto.Marshal(acc)     //Implosions
+	err := proto.Unmarshal(data, acc)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	//Extract Private Key
+	var cPrivK crypto.PrivKey
+	var err2 error
+	switch acc.PrivKey.GetType() {
+	case keypb.KeyType_RSA:
+		cPrivK, err2 = crypto.UnmarshalRsaPrivateKey(acc.PrivKey.GetData())
+		if err2 != nil {
+			return nil, nil, 0, err2
+		}
+	default:
+		return nil, nil, 0, crypto.ErrBadKeyType
+	}
+	//Extract Public Key
+	var cPubK crypto.PubKey
+	var err3 error
+	switch acc.PubKey.GetType() {
+	case keypb.KeyType_RSA:
+		cPubK, err3 = crypto.UnmarshalRsaPublicKey(acc.PubKey.GetData())
+		if err3 != nil {
+			return nil, nil, 0, err3
+		}
+	default:
+		return nil, nil, 0, crypto.ErrBadKeyType
+	}
+	return cPrivK, cPubK, *acc.RegistrationDate, nil
 }

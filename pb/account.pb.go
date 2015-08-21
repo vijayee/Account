@@ -108,9 +108,9 @@ type Transaction struct {
 	// multihash of the Products purchased
 	Products [][]byte `protobuf:"bytes,6,rep" json:"Products,omitempty"`
 	// Epoch Times of Transaction
-	InitiationDate   *uint64 `protobuf:"varint,7,opt" json:"InitiationDate,omitempty"`
-	CompletionDate   *uint64 `protobuf:"varint,8,opt" json:"CompletionDate,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	InitiationDate   *int64 `protobuf:"varint,7,opt" json:"InitiationDate,omitempty"`
+	CompletionDate   *int64 `protobuf:"varint,8,opt" json:"CompletionDate,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
@@ -159,14 +159,14 @@ func (m *Transaction) GetProducts() [][]byte {
 	return nil
 }
 
-func (m *Transaction) GetInitiationDate() uint64 {
+func (m *Transaction) GetInitiationDate() int64 {
 	if m != nil && m.InitiationDate != nil {
 		return *m.InitiationDate
 	}
 	return 0
 }
 
-func (m *Transaction) GetCompletionDate() uint64 {
+func (m *Transaction) GetCompletionDate() int64 {
 	if m != nil && m.CompletionDate != nil {
 		return *m.CompletionDate
 	}
@@ -179,8 +179,8 @@ type Account struct {
 	// Private Account Key
 	PrivKey *crypto_pb.PrivateKey `protobuf:"bytes,2,opt" json:"PrivKey,omitempty"`
 	// Epoch Times of Creation Date
-	RegistrationDate *uint64 `protobuf:"varint,3,opt" json:"RegistrationDate,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	RegistrationDate *int64 `protobuf:"varint,3,opt" json:"RegistrationDate,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
 }
 
 func (m *Account) Reset()         { *m = Account{} }
@@ -201,7 +201,7 @@ func (m *Account) GetPrivKey() *crypto_pb.PrivateKey {
 	return nil
 }
 
-func (m *Account) GetRegistrationDate() uint64 {
+func (m *Account) GetRegistrationDate() int64 {
 	if m != nil && m.RegistrationDate != nil {
 		return *m.RegistrationDate
 	}
