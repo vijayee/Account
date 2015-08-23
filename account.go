@@ -3,10 +3,10 @@ package account
 
 import (
 	"code.google.com/p/go.crypto/scrypt"
-	"crypto/hmac"
+	"crypto/aes"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
@@ -19,7 +19,7 @@ import (
 const (
 	defaultKeyType       = crypto.RSA
 	defaultKeySize       = 2048 //Defaulting to 2048 keys. Please don't crack me!!
-	defaultSecretKeySize = 32
+	defaultSecretKeySize = 16
 	defaultSaltSize      = 16
 )
 
@@ -39,10 +39,13 @@ func NewSecretKey(size int) []byte {
 }
 
 //Encrypt data with HMAC
-func EncryptHMAC(data []byte, key []byte) []byte {
-	hm := hmac.New(sha256.New, key)
-	hm.Write(data)
-	return hm.Sum(nil)
+func EncryptAES(data []byte, key []byte) []byte {
+	ciph, err := aes.NewCipher(key)
+	if err != nil {
+	}
+	var enc = make([]byte, aes.BlockSize)
+	ciph.Encrypt(enc, data)
+	return enc
 }
 
 //Scrypt a password
@@ -80,6 +83,23 @@ func store(data []byte) string {
 
 	return ""
 }
+func retrieve(hash string) []byte {
+	filename := "login/" + hash
+	stat, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+	}
+	var data []byte
+	data = make([]byte, stat.Size())
+	_, err = file.Read(data)
+	if err != nil {
+		return nil
+	}
+	return data
+}
 func put(key string, value string) {
 	if _, err := os.Stat("login"); os.IsNotExist(err) {
 		os.Mkdir("login", 0777)
@@ -99,6 +119,24 @@ func put(key string, value string) {
 		file.Sync()
 	}
 }
+func get(key string) string {
+	filename := "login/" + key
+	stat, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return ""
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+
+	}
+	var data []byte
+	data = make([]byte, stat.Size())
+	_, err = file.Read(data)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
 
 //Register a new account
 func Register(uname string, pword string) {
@@ -115,7 +153,7 @@ func Register(uname string, pword string) {
 	}
 
 	kKs := NewSecretKey(defaultSecretKeySize)
-	accEnc := EncryptHMAC(acc, kKs)
+	accEnc := EncryptAES(acc, kKs)
 	fKs := store(accEnc)
 	salt := NewSecretKey(defaultSaltSize)
 	kLi := EncryptPassword([]byte(pword), salt)
@@ -128,6 +166,11 @@ func Register(uname string, pword string) {
 	put(uname, fli)
 
 }
+
+func Login(uname string, pword string) {
+	fli := get(uname)
+	fmt.Println(fli)
+}
 func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([]byte, error) {
 	creds := new(pb.Credentials)
 	creds.File = &fKs
@@ -137,7 +180,7 @@ func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([
 	if err != nil {
 
 	}
-	crypCreds := EncryptHMAC(credentials, kLi)
+	crypCreds := EncryptAES(credentials, kLi)
 	login := new(pb.Login)
 	login.Salt = salt
 	login.Credentials = crypCreds
