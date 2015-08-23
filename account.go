@@ -6,16 +6,21 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
+	multihash "github.com/jbenet/go-multihash"
 	pb "github.com/vijayee/Account/pb"
+	"os"
+	"time"
 )
 
 const (
 	defaultKeyType       = crypto.RSA
 	defaultKeySize       = 2048 //Defaulting to 2048 keys. Please don't crack me!!
 	defaultSecretKeySize = 32
+	defaultSaltSize      = 16
 )
 
 //Generate Public and a Private Key for a new User
@@ -47,19 +52,98 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 	}
 	return ep
 }
+func store(data []byte) string {
+	var ch []byte
+	ch, err := multihash.EncodeName(data, "sha1")
+	if err != nil {
+		panic(err)
+	}
+	can := hex.EncodeToString(ch)
+	if _, err := os.Stat("login"); os.IsNotExist(err) {
+		os.Mkdir("login", 0777)
+	}
+	filename := "login/" + can
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		file, err := os.Create(filename)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		_, err = file.Write(data)
+		if err != nil {
+			panic(err)
+		}
 
-/*
+		file.Sync()
+		return can
+	}
+
+	return ""
+}
+func put(key string, value string) {
+	if _, err := os.Stat("login"); os.IsNotExist(err) {
+		os.Mkdir("login", 0777)
+	}
+	filename := "login/" + key
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		file, err := os.Create(filename)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		_, err = file.Write([]byte(value))
+		if err != nil {
+			panic(err)
+		}
+		file.Sync()
+	}
+}
+
 //Register a new account
 func Register(uname string, pword string) {
-	priv, pub, err := generateUserKeyPair()
+	if stat, _ := os.Stat("login/" + uname); stat != nil {
+		return
+	}
+	priv, pub, err := GenerateUserKeyPair()
 	if err != nil {
 		return
 	}
-	privKeyPb, err2 := crypto.MarshalPrivateKey(priv)
+	acc, err2 := MarshalAccount(priv, pub, time.Now().Unix())
 	if err2 != nil {
 		return
 	}
-}*/
+
+	kKs := NewSecretKey(defaultSecretKeySize)
+	accEnc := EncryptHMAC(acc, kKs)
+	fKs := store(accEnc)
+	salt := NewSecretKey(defaultSaltSize)
+	kLi := EncryptPassword([]byte(pword), salt)
+	Kw := NewSecretKey(defaultSecretKeySize)
+	FLi, err := MarshalLogin(salt, fKs, kKs, Kw, kLi)
+	if err != nil {
+
+	}
+	fli := store(FLi)
+	put(uname, fli)
+
+}
+func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([]byte, error) {
+	creds := new(pb.Credentials)
+	creds.File = &fKs
+	creds.StorageKey = Kw
+	creds.Password = kKs
+	credentials, err := proto.Marshal(creds)
+	if err != nil {
+
+	}
+	crypCreds := EncryptHMAC(credentials, kLi)
+	login := new(pb.Login)
+	login.Salt = salt
+	login.Credentials = crypCreds
+	return proto.Marshal(login)
+}
+
 //Encode into a protobuf
 func MarshalAccount(priv crypto.PrivKey, pub crypto.PubKey, epTime int64) ([]byte, error) {
 	acc := new(pb.Account) // make proto account

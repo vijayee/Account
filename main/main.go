@@ -22,4 +22,5 @@ func main() {
 	fmt.Println(buf)
 	private, public, unow, err5 = account.UnMarshalAccount(buf)
 	fmt.Println(private, public, unow, err5)
+	account.Register("me@you.com", "golem")
 }

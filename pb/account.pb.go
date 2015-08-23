@@ -11,6 +11,8 @@ It is generated from these files:
 It has these top-level messages:
 	Transaction
 	Account
+	Credentials
+	Login
 */
 package account
 
@@ -206,6 +208,62 @@ func (m *Account) GetRegistrationDate() int64 {
 		return *m.RegistrationDate
 	}
 	return 0
+}
+
+type Credentials struct {
+	Password         []byte  `protobuf:"bytes,1,opt" json:"Password,omitempty"`
+	File             *string `protobuf:"bytes,2,opt" json:"File,omitempty"`
+	StorageKey       []byte  `protobuf:"bytes,3,opt" json:"StorageKey,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Credentials) Reset()         { *m = Credentials{} }
+func (m *Credentials) String() string { return proto.CompactTextString(m) }
+func (*Credentials) ProtoMessage()    {}
+
+func (m *Credentials) GetPassword() []byte {
+	if m != nil {
+		return m.Password
+	}
+	return nil
+}
+
+func (m *Credentials) GetFile() string {
+	if m != nil && m.File != nil {
+		return *m.File
+	}
+	return ""
+}
+
+func (m *Credentials) GetStorageKey() []byte {
+	if m != nil {
+		return m.StorageKey
+	}
+	return nil
+}
+
+type Login struct {
+	Salt             []byte `protobuf:"bytes,1,opt" json:"Salt,omitempty"`
+	Credentials      []byte `protobuf:"bytes,2,opt" json:"Credentials,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *Login) Reset()         { *m = Login{} }
+func (m *Login) String() string { return proto.CompactTextString(m) }
+func (*Login) ProtoMessage()    {}
+
+func (m *Login) GetSalt() []byte {
+	if m != nil {
+		return m.Salt
+	}
+	return nil
+}
+
+func (m *Login) GetCredentials() []byte {
+	if m != nil {
+		return m.Credentials
+	}
+	return nil
 }
 
 func init() {
