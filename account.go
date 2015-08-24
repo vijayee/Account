@@ -222,45 +222,25 @@ func UnMarshalLogin(data []byte, pword string) ([]byte, string, []byte, []byte, 
 		return nil, "", nil, nil, nil, err
 	}
 	kLi := EncryptPassword([]byte(pword), login.Salt)
-	fmt.Printf("kLi: %s \n", kLi)
-	fmt.Printf("CrypCreds: %s \n", login.Credentials)
-
-	credentials := DecryptAES(login.Credentials, kLi)
-	fmt.Printf("CredentialsPB: %s \n", credentials)
-	creds := new(pb.Credentials)
-	fmt.Println(creds.File)
-	err = proto.Unmarshal(credentials, creds)
+	creds := login.LoginCredentials
 	if err != nil {
 		return nil, "", nil, nil, nil, err
 	}
-	fmt.Println("WASSUP")
-	return login.Salt, *creds.File, nil, creds.Password, kLi, nil
+	fks := string(DecryptAES([]byte(*creds.File), kLi))
+	Kw := DecryptAES(creds.StorageKey, kLi)
+	kKs := DecryptAES(creds.Password, kLi)
+	return login.Salt, fks, kKs, Kw, kLi, nil
 
 }
 func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([]byte, error) {
 	creds := new(pb.Credentials)
-	creds.File = &fKs
-	creds.StorageKey = Kw
-	creds.Password = kKs
-	credentials, err := proto.Marshal(creds)
-	if err != nil {
-
-	}
-	fmt.Printf("CredentialsPB: %s \n", credentials)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Printf("kLi: %s \n", kLi)
-	crypCreds := EncryptAES(credentials, kLi)
-	fmt.Printf("CrypCreds: %s \n", crypCreds)
-	creds2 := new(pb.Credentials)
-	credentials2 := DecryptAES(crypCreds, kLi)
-	err = proto.Unmarshal(credentials2, creds2)
-	//fmt.Printf("FILE: %s \n", creds2.File)
-	//fmt.Print("Equality: \n", credentials, "\n 2nd:\n", credentials2, "\n")
+	file := string(EncryptAES([]byte(fKs), kLi))
+	creds.File = &file
+	creds.StorageKey = EncryptAES(Kw, kLi)
+	creds.Password = EncryptAES(kKs, kLi)
 	login := new(pb.Login)
 	login.Salt = salt
-	login.Credentials = crypCreds
+	login.LoginCredentials = creds
 	return proto.Marshal(login)
 }
 

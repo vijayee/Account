@@ -43,5 +43,5 @@ message Credentials{
 }
 message Login{
 	optional bytes Salt = 1;
-	optional bytes Credentials = 2;
+	optional Credentials LoginCredentials= 2;
 }

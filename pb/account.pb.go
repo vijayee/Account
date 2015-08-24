@@ -243,9 +243,9 @@ func (m *Credentials) GetStorageKey() []byte {
 }
 
 type Login struct {
-	Salt             []byte `protobuf:"bytes,1,opt" json:"Salt,omitempty"`
-	Credentials      []byte `protobuf:"bytes,2,opt" json:"Credentials,omitempty"`
-	XXX_unrecognized []byte `json:"-"`
+	Salt             []byte       `protobuf:"bytes,1,opt" json:"Salt,omitempty"`
+	LoginCredentials *Credentials `protobuf:"bytes,2,opt" json:"LoginCredentials,omitempty"`
+	XXX_unrecognized []byte       `json:"-"`
 }
 
 func (m *Login) Reset()         { *m = Login{} }
@@ -259,9 +259,9 @@ func (m *Login) GetSalt() []byte {
 	return nil
 }
 
-func (m *Login) GetCredentials() []byte {
+func (m *Login) GetLoginCredentials() *Credentials {
 	if m != nil {
-		return m.Credentials
+		return m.LoginCredentials
 	}
 	return nil
 }
