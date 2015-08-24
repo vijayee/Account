@@ -4,7 +4,9 @@ package account
 import (
 	"code.google.com/p/go.crypto/scrypt"
 	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	//"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	proto "github.com/gogo/protobuf/proto"
@@ -12,7 +14,9 @@ import (
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
 	multihash "github.com/jbenet/go-multihash"
 	pb "github.com/vijayee/Account/pb"
+	"io"
 	"os"
+	//"reflect"
 	"time"
 )
 
@@ -38,14 +42,37 @@ func NewSecretKey(size int) []byte {
 	return key
 }
 
-//Encrypt data with HMAC
+//Encrypt data with AES
 func EncryptAES(data []byte, key []byte) []byte {
-	ciph, err := aes.NewCipher(key)
+	block, err := aes.NewCipher(key)
 	if err != nil {
+		return nil
 	}
-	var enc = make([]byte, aes.BlockSize)
-	ciph.Encrypt(enc, data)
+	enc := make([]byte, aes.BlockSize+len(data))
+	iv := enc[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil
+	}
+	cfb := cipher.NewCFBEncrypter(block, iv)
+	cfb.XORKeyStream(enc[aes.BlockSize:], []byte(data))
 	return enc
+}
+
+//Decrypt data with AES
+func DecryptAES(text []byte, key []byte) []byte {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil
+	}
+	if len(text) < aes.BlockSize {
+		return nil
+	}
+	iv := text[:aes.BlockSize]
+	text = text[aes.BlockSize:]
+	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb.XORKeyStream(text, text)
+
+	return text
 }
 
 //Scrypt a password
@@ -57,10 +84,19 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 }
 func store(data []byte) string {
 	var ch []byte
-	ch, err := multihash.EncodeName(data, "sha1")
-	if err != nil {
-		panic(err)
+	var err error
+	if len(data) > 120 {
+		ch, err = multihash.EncodeName(data[0:120], "sha1")
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		ch, err = multihash.EncodeName(data, "sha1")
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	can := hex.EncodeToString(ch)
 	if _, err := os.Stat("login"); os.IsNotExist(err) {
 		os.Mkdir("login", 0777)
@@ -127,7 +163,6 @@ func get(key string) string {
 	}
 	file, err := os.Open(filename)
 	if err != nil {
-
 	}
 	var data []byte
 	data = make([]byte, stat.Size())
@@ -163,13 +198,44 @@ func Register(uname string, pword string) {
 
 	}
 	fli := store(FLi)
+
 	put(uname, fli)
 
 }
 
 func Login(uname string, pword string) {
 	fli := get(uname)
-	fmt.Println(fli)
+
+	Fli := retrieve(fli)
+	salt, fKs, kKs, Kw, kLi, err := UnMarshalLogin(Fli, pword)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(salt, fKs, kKs, Kw, kLi)
+
+}
+func UnMarshalLogin(data []byte, pword string) ([]byte, string, []byte, []byte, []byte, error) {
+	login := new(pb.Login)
+	proto.Marshal(login)
+	err := proto.Unmarshal(data, login)
+	if err != nil {
+		return nil, "", nil, nil, nil, err
+	}
+	kLi := EncryptPassword([]byte(pword), login.Salt)
+	fmt.Printf("kLi: %s \n", kLi)
+	fmt.Printf("CrypCreds: %s \n", login.Credentials)
+
+	credentials := DecryptAES(login.Credentials, kLi)
+	fmt.Printf("CredentialsPB: %s \n", credentials)
+	creds := new(pb.Credentials)
+	fmt.Println(creds.File)
+	err = proto.Unmarshal(credentials, creds)
+	if err != nil {
+		return nil, "", nil, nil, nil, err
+	}
+	fmt.Println("WASSUP")
+	return login.Salt, *creds.File, nil, creds.Password, kLi, nil
+
 }
 func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([]byte, error) {
 	creds := new(pb.Credentials)
@@ -180,7 +246,18 @@ func MarshalLogin(salt []byte, fKs string, kKs []byte, Kw []byte, kLi []byte) ([
 	if err != nil {
 
 	}
+	fmt.Printf("CredentialsPB: %s \n", credentials)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("kLi: %s \n", kLi)
 	crypCreds := EncryptAES(credentials, kLi)
+	fmt.Printf("CrypCreds: %s \n", crypCreds)
+	creds2 := new(pb.Credentials)
+	credentials2 := DecryptAES(crypCreds, kLi)
+	err = proto.Unmarshal(credentials2, creds2)
+	//fmt.Printf("FILE: %s \n", creds2.File)
+	//fmt.Print("Equality: \n", credentials, "\n 2nd:\n", credentials2, "\n")
 	login := new(pb.Login)
 	login.Salt = salt
 	login.Credentials = crypCreds
@@ -211,9 +288,8 @@ func MarshalAccount(priv crypto.PrivKey, pub crypto.PubKey, epTime int64) ([]byt
 	return proto.Marshal(acc) //Explosions
 }
 func UnMarshalAccount(data []byte) (crypto.PrivKey, crypto.PubKey, int64, error) {
-	acc := new(pb.Account) // make proto account
-	proto.Marshal(acc)     //Implosions
-	err := proto.Unmarshal(data, acc)
+	acc := new(pb.Account)            // make proto account
+	err := proto.Unmarshal(data, acc) //Implosions
 	if err != nil {
 		return nil, nil, 0, err
 	}
