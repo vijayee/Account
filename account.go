@@ -207,11 +207,17 @@ func Login(uname string, pword string) {
 	fli := get(uname)
 
 	Fli := retrieve(fli)
-	salt, fKs, kKs, Kw, kLi, err := UnMarshalLogin(Fli, pword)
+	_, fKs, kKs, _, _, err := UnMarshalLogin(Fli, pword)
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(salt, fKs, kKs, Kw, kLi)
+	accEnc := retrieve(fKs)
+	acc := DecryptAES(accEnc, kKs)
+	priv, pub, reg, err := UnMarshalAccount(acc)
+	fmt.Println(priv)
+	fmt.Println(pub)
+	fmt.Println(reg)
+	//fmt.Println(salt, fKs, kKs, Kw, kLi)
 
 }
 func UnMarshalLogin(data []byte, pword string) ([]byte, string, []byte, []byte, []byte, error) {
