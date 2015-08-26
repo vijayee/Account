@@ -8,7 +8,7 @@ import (
 	"crypto/rand"
 	//"encoding/base64"
 	"encoding/hex"
-	"fmt"
+	//"fmt"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
@@ -164,6 +164,7 @@ func get(key string) string {
 	file, err := os.Open(filename)
 	if err != nil {
 	}
+	defer file.Close()
 	var data []byte
 	data = make([]byte, stat.Size())
 	_, err = file.Read(data)
@@ -173,6 +174,44 @@ func get(key string) string {
 	return string(data)
 }
 
+//Change DHT value
+func post(key string, value string) {
+	filename := "login/" + key
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return
+	}
+	file, err := os.OpenFile(filename, os.O_RDWR, 0777)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	_, err = file.Write([]byte(value))
+	if err != nil {
+		panic(err)
+	}
+	file.Sync()
+}
+
+// Change storage value
+func write(hash string, data []byte) {
+	filename := "login/" + hash
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		panic(err)
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+		panic(err)
+	}
+	_, err = file.Write([]byte(data))
+	if err != nil {
+		panic(err)
+	}
+	file.Sync()
+}
+
 //Register a new account
 func Register(uname string, pword string) {
 	if stat, _ := os.Stat("login/" + uname); stat != nil {
@@ -180,11 +219,11 @@ func Register(uname string, pword string) {
 	}
 	priv, pub, err := GenerateUserKeyPair()
 	if err != nil {
-		return
+		panic(err)
 	}
-	acc, err2 := MarshalAccount(priv, pub, time.Now().Unix())
-	if err2 != nil {
-		return
+	acc, err := MarshalAccount(priv, pub, time.Now().Unix())
+	if err != nil {
+		panic(err)
 	}
 
 	kKs := NewSecretKey(defaultSecretKeySize)
@@ -203,21 +242,39 @@ func Register(uname string, pword string) {
 
 }
 
-func Login(uname string, pword string) {
+//Login to an Account
+func Login(uname string, pword string) (crypto.PrivKey, crypto.PubKey, int64) {
 	fli := get(uname)
 
 	Fli := retrieve(fli)
 	_, fKs, kKs, _, _, err := UnMarshalLogin(Fli, pword)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
 	accEnc := retrieve(fKs)
 	acc := DecryptAES(accEnc, kKs)
 	priv, pub, reg, err := UnMarshalAccount(acc)
-	fmt.Println(priv)
-	fmt.Println(pub)
-	fmt.Println(reg)
-	//fmt.Println(salt, fKs, kKs, Kw, kLi)
+	return priv, pub, reg
+}
+func ChangePassword(uname string, oldpword string, newpword string) {
+	oldfli := get(uname)
+	oldFli := retrieve(oldfli)
+
+	_, oldfKs, oldkKs, Kw, _, err := UnMarshalLogin(oldFli, oldpword)
+	if err != nil {
+
+	}
+
+	newSalt := NewSecretKey(defaultSaltSize)
+	newkLi := EncryptPassword([]byte(newpword), newSalt)
+	newkKs := NewSecretKey(defaultSecretKeySize)
+	accEnc := retrieve(oldfKs)
+	acc := DecryptAES(accEnc, oldkKs)
+	accEnc = EncryptAES(acc, newkKs)
+	newfKs := store(accEnc)
+	newFLi, err := MarshalLogin(newSalt, newfKs, newkKs, Kw, newkLi)
+	newfli := store(newFLi)
+	post(uname, newfli)
 
 }
 func UnMarshalLogin(data []byte, pword string) ([]byte, string, []byte, []byte, []byte, error) {
@@ -225,12 +282,12 @@ func UnMarshalLogin(data []byte, pword string) ([]byte, string, []byte, []byte, 
 	proto.Marshal(login)
 	err := proto.Unmarshal(data, login)
 	if err != nil {
-		return nil, "", nil, nil, nil, err
+		panic(err)
 	}
 	kLi := EncryptPassword([]byte(pword), login.Salt)
 	creds := login.LoginCredentials
 	if err != nil {
-		return nil, "", nil, nil, nil, err
+		panic(err)
 	}
 	fks := string(DecryptAES([]byte(*creds.File), kLi))
 	Kw := DecryptAES(creds.StorageKey, kLi)
