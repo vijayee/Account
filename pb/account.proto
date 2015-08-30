@@ -38,10 +38,22 @@ message Account {
 }
 message Credentials{	
 	optional bytes Password = 1;
-	optional string File = 2;
+	optional bytes File = 2;
 	optional bytes StorageKey = 3;	
 }
 message Login{
 	optional bytes Salt = 1;
 	optional Credentials LoginCredentials= 2;
+	optional string Question1= 3;
+	optional string Question2= 4;
+	optional string Question3= 5;
+	optional bytes QSalt1 = 6;
+	optional bytes QSalt2 = 7;
+	optional bytes QSalt3 = 8;
+	optional bytes QKenc1 = 9;
+	optional bytes QKenc2 = 10;
+	optional bytes QKenc3 = 11;
+	optional bytes QSenc1 = 12;
+	optional bytes QSenc2 = 13;
+	optional bytes QSenc3 = 14;
 }

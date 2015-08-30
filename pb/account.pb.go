@@ -211,10 +211,10 @@ func (m *Account) GetRegistrationDate() int64 {
 }
 
 type Credentials struct {
-	Password         []byte  `protobuf:"bytes,1,opt" json:"Password,omitempty"`
-	File             *string `protobuf:"bytes,2,opt" json:"File,omitempty"`
-	StorageKey       []byte  `protobuf:"bytes,3,opt" json:"StorageKey,omitempty"`
-	XXX_unrecognized []byte  `json:"-"`
+	Password         []byte `protobuf:"bytes,1,opt" json:"Password,omitempty"`
+	File             []byte `protobuf:"bytes,2,opt" json:"File,omitempty"`
+	StorageKey       []byte `protobuf:"bytes,3,opt" json:"StorageKey,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
 }
 
 func (m *Credentials) Reset()         { *m = Credentials{} }
@@ -228,11 +228,11 @@ func (m *Credentials) GetPassword() []byte {
 	return nil
 }
 
-func (m *Credentials) GetFile() string {
-	if m != nil && m.File != nil {
-		return *m.File
+func (m *Credentials) GetFile() []byte {
+	if m != nil {
+		return m.File
 	}
-	return ""
+	return nil
 }
 
 func (m *Credentials) GetStorageKey() []byte {
@@ -245,6 +245,18 @@ func (m *Credentials) GetStorageKey() []byte {
 type Login struct {
 	Salt             []byte       `protobuf:"bytes,1,opt" json:"Salt,omitempty"`
 	LoginCredentials *Credentials `protobuf:"bytes,2,opt" json:"LoginCredentials,omitempty"`
+	Question1        *string      `protobuf:"bytes,3,opt" json:"Question1,omitempty"`
+	Question2        *string      `protobuf:"bytes,4,opt" json:"Question2,omitempty"`
+	Question3        *string      `protobuf:"bytes,5,opt" json:"Question3,omitempty"`
+	QSalt1           []byte       `protobuf:"bytes,6,opt" json:"QSalt1,omitempty"`
+	QSalt2           []byte       `protobuf:"bytes,7,opt" json:"QSalt2,omitempty"`
+	QSalt3           []byte       `protobuf:"bytes,8,opt" json:"QSalt3,omitempty"`
+	QKenc1           []byte       `protobuf:"bytes,9,opt" json:"QKenc1,omitempty"`
+	QKenc2           []byte       `protobuf:"bytes,10,opt" json:"QKenc2,omitempty"`
+	QKenc3           []byte       `protobuf:"bytes,11,opt" json:"QKenc3,omitempty"`
+	QSenc1           []byte       `protobuf:"bytes,12,opt" json:"QSenc1,omitempty"`
+	QSenc2           []byte       `protobuf:"bytes,13,opt" json:"QSenc2,omitempty"`
+	QSenc3           []byte       `protobuf:"bytes,14,opt" json:"QSenc3,omitempty"`
 	XXX_unrecognized []byte       `json:"-"`
 }
 
@@ -262,6 +274,90 @@ func (m *Login) GetSalt() []byte {
 func (m *Login) GetLoginCredentials() *Credentials {
 	if m != nil {
 		return m.LoginCredentials
+	}
+	return nil
+}
+
+func (m *Login) GetQuestion1() string {
+	if m != nil && m.Question1 != nil {
+		return *m.Question1
+	}
+	return ""
+}
+
+func (m *Login) GetQuestion2() string {
+	if m != nil && m.Question2 != nil {
+		return *m.Question2
+	}
+	return ""
+}
+
+func (m *Login) GetQuestion3() string {
+	if m != nil && m.Question3 != nil {
+		return *m.Question3
+	}
+	return ""
+}
+
+func (m *Login) GetQSalt1() []byte {
+	if m != nil {
+		return m.QSalt1
+	}
+	return nil
+}
+
+func (m *Login) GetQSalt2() []byte {
+	if m != nil {
+		return m.QSalt2
+	}
+	return nil
+}
+
+func (m *Login) GetQSalt3() []byte {
+	if m != nil {
+		return m.QSalt3
+	}
+	return nil
+}
+
+func (m *Login) GetQKenc1() []byte {
+	if m != nil {
+		return m.QKenc1
+	}
+	return nil
+}
+
+func (m *Login) GetQKenc2() []byte {
+	if m != nil {
+		return m.QKenc2
+	}
+	return nil
+}
+
+func (m *Login) GetQKenc3() []byte {
+	if m != nil {
+		return m.QKenc3
+	}
+	return nil
+}
+
+func (m *Login) GetQSenc1() []byte {
+	if m != nil {
+		return m.QSenc1
+	}
+	return nil
+}
+
+func (m *Login) GetQSenc2() []byte {
+	if m != nil {
+		return m.QSenc2
+	}
+	return nil
+}
+
+func (m *Login) GetQSenc3() []byte {
+	if m != nil {
+		return m.QSenc3
 	}
 	return nil
 }
