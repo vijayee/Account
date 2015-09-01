@@ -113,8 +113,8 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 func store(data []byte) string {
 	var ch []byte
 	var err error
-	if len(data) > 120 {
-		ch, err = multihash.EncodeName(data[0:120], "sha1")
+	if len(data) > 16 {
+		ch, err = multihash.EncodeName(data[:16], "sha1")
 		if err != nil {
 			panic(err)
 		}
@@ -302,10 +302,7 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	login.QKenc3 = QKenc3
 
 	FLi, err := MarshalLogin(login)
-	/*
-		log := UnMarshalLogin(FLi)
-		fmt.Println(log.Salt)
-	*/
+
 	if err != nil {
 
 	}
@@ -329,7 +326,6 @@ func LogOn(uname string, pword string) (Account, error) {
 	fli := get(uname)
 
 	Fli := retrieve(fli)
-	//fmt.Println(Fli)
 	login := UnMarshalLogin(Fli)
 	kLi := EncryptPassword([]byte(pword), login.Salt)
 	fKs := DecryptAES(login.LoginCredentials.File, kLi)
@@ -344,7 +340,6 @@ func LogOn(uname string, pword string) (Account, error) {
 func ChangePassword(uname string, oldpword string, newpword string) {
 	oldfli := get(uname)
 	oldFli := retrieve(oldfli)
-
 	oldLogin := UnMarshalLogin(oldFli)
 
 	newSalt := NewSecretKey(defaultSaltSize)
@@ -363,9 +358,7 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 
 	newfKs := store(accEnc)
 
-	newLogin := new(Login)
-
-	newCreds := *new(Credentials)
+	newCreds := new(Credentials)
 
 	newCreds.File = EncryptAES([]byte(newfKs), newkLi)
 	newCreds.Password = EncryptAES(newkKs, newkLi)
@@ -385,9 +378,9 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	QKenc2 := EncryptAES([]byte(QK2), newkLi)
 	QKenc3 := EncryptAES([]byte(QK3), newkLi)
 
-	newlogin := new(Login)
+	newlogin := *new(Login)
 	newlogin.Salt = newSalt
-	newlogin.LoginCredentials = newCreds
+	newlogin.LoginCredentials = *newCreds
 	newlogin.Question1 = oldLogin.Question1
 	newlogin.Question2 = oldLogin.Question2
 	newlogin.Question3 = oldLogin.Question3
@@ -401,7 +394,7 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	newlogin.QKenc2 = QKenc2
 	newlogin.QKenc3 = QKenc3
 
-	newFLi, err := MarshalLogin(*newLogin)
+	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
 		panic(err)
 	}
@@ -411,18 +404,13 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 }
 func UnMarshalLogin(data []byte) Login {
 	loginpb := new(pb.Login)
-	proto.Marshal(loginpb)
 	err := proto.Unmarshal(data, loginpb)
 	if err != nil {
 		panic(err)
 	}
 	creds := *new(Credentials)
-
 	//kLi := EncryptPassword([]byte(pword), loginpb.Salt)
 	credspb := loginpb.LoginCredentials
-	if err != nil {
-		panic(err)
-	}
 
 	creds.File = credspb.File
 	creds.Password = credspb.Password
