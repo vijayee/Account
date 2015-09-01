@@ -9,6 +9,7 @@ import (
 	//"encoding/base64"
 	"encoding/hex"
 	//"fmt"
+	"errors"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
@@ -16,7 +17,6 @@ import (
 	pb "github.com/vijayee/Account/pb"
 	"io"
 	"os"
-	//"reflect"
 	"time"
 )
 
@@ -342,16 +342,16 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	oldFli := retrieve(oldfli)
 	oldLogin := UnMarshalLogin(oldFli)
 
+	oldkLi := EncryptPassword([]byte(oldpword), oldLogin.Salt)
+	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
+	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
+
+	accEnc := retrieve(string(oldFks)) //joke gets funnier
+
 	newSalt := NewSecretKey(defaultSaltSize)
 	newkLi := EncryptPassword([]byte(newpword), newSalt)
 	newkKs := NewSecretKey(defaultSecretKeySize)
 	newKW := NewSecretKey(defaultSecretKeySize)
-
-	oldkLi := EncryptPassword([]byte(oldpword), oldLogin.Salt)
-	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi)
-	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
-
-	accEnc := retrieve(string(oldFks))
 
 	acc := DecryptAES(accEnc, oldkKs)
 	accEnc = EncryptAES(acc, newkKs)
@@ -402,6 +402,86 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	post(uname, newfli)
 
 }
+
+func Recover(uname string, newpword string, A1 string, A2 string, A3 string) error {
+	//Retrieve account information
+	fli := get(uname)
+	Fli := retrieve(fli)
+	oldLogin := UnMarshalLogin(Fli)
+	//form arms and legs...
+	QK1 := EncryptPassword([]byte(A1), oldLogin.QSalt1)
+	QK2 := EncryptPassword([]byte(A2), oldLogin.QSalt2)
+	QK3 := EncryptPassword([]byte(A3), oldLogin.QSalt3)
+	Qs1 := DecryptAES([]byte(oldLogin.QSenc1), QK1)
+	Qs2 := DecryptAES([]byte(oldLogin.QSenc2), QK2)
+	Qs3 := DecryptAES([]byte(oldLogin.QSenc3), QK3)
+	//form head...which by voltron standards is also a body but hey who's counting
+	var oldkLi []byte
+	oldkLi = append(oldkLi, Qs1...)
+	oldkLi = append(oldkLi, Qs2...)
+	oldkLi = append(oldkLi, Qs3...)
+
+	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
+	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
+
+	accEnc := retrieve(string(oldFks)) //joke gets funnier
+	if len(accEnc) < 1 {
+		return errors.New("Invalid Answers")
+	}
+
+	newSalt := NewSecretKey(defaultSaltSize)
+	newkLi := EncryptPassword([]byte(newpword), newSalt)
+	newkKs := NewSecretKey(defaultSecretKeySize)
+	newKW := NewSecretKey(defaultSecretKeySize)
+
+	acc := DecryptAES(accEnc, oldkKs)
+	accEnc = EncryptAES(acc, newkKs)
+
+	newfKs := store(accEnc)
+
+	newCreds := new(Credentials)
+
+	newCreds.File = EncryptAES([]byte(newfKs), newkLi)
+	newCreds.Password = EncryptAES(newkKs, newkLi)
+	newCreds.StorageKey = EncryptAES(newKW, newkLi)
+
+	Qs1, Qs2, Qs3 = splitMeThreeTimes(newkLi)
+	Qsalt1 := NewSecretKey(defaultSaltSize)
+	Qsalt2 := NewSecretKey(defaultSaltSize)
+	Qsalt3 := NewSecretKey(defaultSaltSize)
+	QSenc1 := EncryptAES([]byte(Qs1), QK1)
+	QSenc2 := EncryptAES([]byte(Qs2), QK2)
+	QSenc3 := EncryptAES([]byte(Qs3), QK3)
+	QKenc1 := EncryptAES([]byte(QK1), newkLi)
+	QKenc2 := EncryptAES([]byte(QK2), newkLi)
+	QKenc3 := EncryptAES([]byte(QK3), newkLi)
+
+	newlogin := *new(Login)
+	newlogin.Salt = newSalt
+	newlogin.LoginCredentials = *newCreds
+	newlogin.Question1 = oldLogin.Question1
+	newlogin.Question2 = oldLogin.Question2
+	newlogin.Question3 = oldLogin.Question3
+	newlogin.QSenc1 = QSenc1
+	newlogin.QSenc2 = QSenc2
+	newlogin.QSenc3 = QSenc3
+	newlogin.QSalt1 = Qsalt1
+	newlogin.QSalt2 = Qsalt2
+	newlogin.QSalt3 = Qsalt3
+	newlogin.QKenc1 = QKenc1
+	newlogin.QKenc2 = QKenc2
+	newlogin.QKenc3 = QKenc3
+
+	newFLi, err := MarshalLogin(newlogin)
+	if err != nil {
+		panic(err)
+	}
+	newfli := store(newFLi)
+	post(uname, newfli)
+	return nil
+
+}
+
 func UnMarshalLogin(data []byte) Login {
 	loginpb := new(pb.Login)
 	err := proto.Unmarshal(data, loginpb)
