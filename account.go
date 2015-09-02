@@ -8,8 +8,8 @@ import (
 	"crypto/rand"
 	//"encoding/base64"
 	"encoding/hex"
-	//"fmt"
 	"errors"
+	//"fmt"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
@@ -113,8 +113,8 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 func store(data []byte) string {
 	var ch []byte
 	var err error
-	if len(data) > 16 {
-		ch, err = multihash.EncodeName(data[:16], "sha1")
+	if len(data) > 120 {
+		ch, err = multihash.EncodeName(data[:120], "sha1")
 		if err != nil {
 			panic(err)
 		}
@@ -143,6 +143,8 @@ func store(data []byte) string {
 
 		file.Sync()
 		return can
+	} else {
+		panic("File Exists")
 	}
 
 	return ""
@@ -401,6 +403,63 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	newfli := store(newFLi)
 	post(uname, newfli)
 
+}
+func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string,
+	A1 string, A2 string, A3 string) error {
+	oldfli := get(uname)
+	oldFli := retrieve(oldfli)
+	oldLogin := UnMarshalLogin(oldFli)
+
+	oldkLi := EncryptPassword([]byte(pword), oldLogin.Salt)
+	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
+	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
+	oldKW := DecryptAES(oldLogin.LoginCredentials.StorageKey, oldkLi)
+
+	accEnc := retrieve(string(oldFks)) //joke gets funnier
+	if len(accEnc) < 1 {
+		return errors.New("Invalid Password")
+	}
+
+	Qs1, Qs2, Qs3 := splitMeThreeTimes(oldkLi)
+	Qsalt1 := NewSecretKey(defaultSaltSize)
+	Qsalt2 := NewSecretKey(defaultSaltSize)
+	Qsalt3 := NewSecretKey(defaultSaltSize)
+	QK1 := EncryptPassword([]byte(A1), Qsalt1)
+	QK2 := EncryptPassword([]byte(A2), Qsalt2)
+	QK3 := EncryptPassword([]byte(A3), Qsalt3)
+	QSenc1 := EncryptAES([]byte(Qs1), QK1)
+	QSenc2 := EncryptAES([]byte(Qs2), QK2)
+	QSenc3 := EncryptAES([]byte(Qs3), QK3)
+	QKenc1 := EncryptAES([]byte(QK1), oldkLi)
+	QKenc2 := EncryptAES([]byte(QK2), oldkLi)
+	QKenc3 := EncryptAES([]byte(QK3), oldkLi)
+
+	newCreds := *new(Credentials)
+	newCreds.File = EncryptAES([]byte(oldFks), oldkLi)
+	newCreds.Password = EncryptAES(oldkKs, oldkLi)
+	newCreds.StorageKey = EncryptAES(oldKW, oldkLi)
+	newlogin := *new(Login)
+	newlogin.LoginCredentials = newCreds
+	newlogin.Question1 = Q1
+	newlogin.Question2 = Q2
+	newlogin.Question3 = Q3
+	newlogin.QSenc1 = QSenc1
+	newlogin.QSenc2 = QSenc2
+	newlogin.QSenc3 = QSenc3
+	newlogin.QSalt1 = Qsalt1
+	newlogin.QSalt2 = Qsalt2
+	newlogin.QSalt3 = Qsalt3
+	newlogin.QKenc1 = QKenc1
+	newlogin.QKenc2 = QKenc2
+	newlogin.QKenc3 = QKenc3
+
+	newFLi, err := MarshalLogin(newlogin)
+	if err != nil {
+		panic(err)
+	}
+	newfli := store(newFLi)
+	post(uname, newfli)
+	return nil
 }
 
 func Recover(uname string, newpword string, A1 string, A2 string, A3 string) error {
