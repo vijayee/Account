@@ -110,18 +110,18 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 	}
 	return ep
 }
-func store(data []byte) string {
+func store(data []byte) (string, error) {
 	var ch []byte
 	var err error
 	if len(data) > 120 {
 		ch, err = multihash.EncodeName(data[:120], "sha1")
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 	} else {
 		ch, err = multihash.EncodeName(data, "sha1")
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 	}
 
@@ -133,40 +133,41 @@ func store(data []byte) string {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		file, err := os.Create(filename)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		defer file.Close()
 		_, err = file.Write(data)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 
 		file.Sync()
-		return can
+		return can, nil
 	} else {
-		panic("File Exists")
+		return "", errors.New("File Exists")
 	}
 
-	return ""
+	return "", nil
 }
-func retrieve(hash string) []byte {
+func retrieve(hash string) ([]byte, error) {
 	filename := "login/" + hash
 	stat, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-		return nil
+		return nil, err
 	}
 	file, err := os.Open(filename)
 	if err != nil {
+		return nil, err
 	}
 	var data []byte
 	data = make([]byte, stat.Size())
 	_, err = file.Read(data)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return data
+	return data, nil
 }
-func put(key string, value string) {
+func put(key string, value string) error {
 	if _, err := os.Stat("login"); os.IsNotExist(err) {
 		os.Mkdir("login", 0777)
 	}
@@ -174,83 +175,87 @@ func put(key string, value string) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		file, err := os.Create(filename)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		defer file.Close()
 
 		_, err = file.Write([]byte(value))
 		if err != nil {
-			panic(err)
+			return err
 		}
 		file.Sync()
 	}
+	return nil
 }
-func get(key string) string {
+func get(key string) (string, error) {
 	filename := "login/" + key
 	stat, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-		return ""
+		return "", err
 	}
 	file, err := os.Open(filename)
 	if err != nil {
+		return "", err
 	}
 	defer file.Close()
 	var data []byte
 	data = make([]byte, stat.Size())
 	_, err = file.Read(data)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return string(data)
+	return string(data), nil
 }
 
 //Change DHT value
-func post(key string, value string) {
+func post(key string, value string) error {
 	filename := "login/" + key
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-		return
+		return err
 	}
 	file, err := os.OpenFile(filename, os.O_RDWR, 0777)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer file.Close()
 
 	_, err = file.Write([]byte(value))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	file.Sync()
+	return nil
 }
 
 // Change storage value
-func write(hash string, data []byte) {
+func write(hash string, data []byte) error {
 	filename := "login/" + hash
 	_, err := os.Stat(filename)
 	if os.IsNotExist(err) {
-		panic(err)
+		return err
 	}
 	file, err := os.Open(filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	_, err = file.Write([]byte(data))
 	if err != nil {
-		panic(err)
+		return err
 	}
 	file.Sync()
+	return nil
 }
 
 //Register a new account
 func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
-	A1 string, A2 string, A3 string) {
+	A1 string, A2 string, A3 string) error {
 	if stat, _ := os.Stat("login/" + uname); stat != nil {
-		return
+		return errors.New("Login is Already Registered")
 	}
 	priv, pub, err := GenerateUserKeyPair()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	acc := *new(Account)
 	acc.PrivKey = priv
@@ -258,12 +263,12 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	acc.RegistrationDate = time.Now().Unix()
 	accpb, err := MarshalAccount(acc)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	kKs := NewSecretKey(defaultSecretKeySize)
 	accEnc := EncryptAES(accpb, kKs)
-	fKs := store(accEnc)
+	fKs, err := store(accEnc)
 	salt := NewSecretKey(defaultSaltSize)
 	kLi := EncryptPassword([]byte(pword), salt)
 	Qs1, Qs2, Qs3 := splitMeThreeTimes(kLi)
@@ -306,12 +311,19 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	FLi, err := MarshalLogin(login)
 
 	if err != nil {
+		return err
 
 	}
-	fli := store(FLi)
+	fli, err := store(FLi)
+	if err != nil {
+		return err
 
-	put(uname, fli)
-
+	}
+	err = put(uname, fli)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 	pad := len(data) % 3
@@ -325,30 +337,66 @@ func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 
 //Login to an Account
 func LogOn(uname string, pword string) (Account, error) {
-	fli := get(uname)
+	fli, err := get(uname)
+	if err != nil {
+		return *new(Account), err
 
-	Fli := retrieve(fli)
-	login := UnMarshalLogin(Fli)
+	}
+
+	Fli, err := retrieve(fli)
+	if err != nil {
+		return *new(Account), err
+
+	}
+	login, err := UnMarshalLogin(Fli)
+	if err != nil {
+		return *new(Account), err
+
+	}
 	kLi := EncryptPassword([]byte(pword), login.Salt)
 	fKs := DecryptAES(login.LoginCredentials.File, kLi)
 	kKs := DecryptAES(login.LoginCredentials.Password, kLi)
-	accEnc := retrieve(string(fKs))
+	accEnc, err := retrieve(string(fKs))
+	if err != nil {
+		return *new(Account), err
+
+	}
 
 	acc := DecryptAES(accEnc, kKs)
 
 	account, err := UnMarshalAccount(acc)
+	if err != nil {
+		return *new(Account), err
+
+	}
 	return account, err
 }
-func ChangePassword(uname string, oldpword string, newpword string) {
-	oldfli := get(uname)
-	oldFli := retrieve(oldfli)
-	oldLogin := UnMarshalLogin(oldFli)
+func ChangePassword(uname string, oldpword string, newpword string) error {
+	oldfli, err := get(uname)
+	if err != nil {
+		return err
+
+	}
+	oldFli, err := retrieve(oldfli)
+	if err != nil {
+		return err
+
+	}
+	oldLogin, err := UnMarshalLogin(oldFli)
+	if err != nil {
+		return err
+
+	}
 
 	oldkLi := EncryptPassword([]byte(oldpword), oldLogin.Salt)
 	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 
-	accEnc := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
+	if err != nil {
+		return err
+
+	}
 
 	newSalt := NewSecretKey(defaultSaltSize)
 	newkLi := EncryptPassword([]byte(newpword), newSalt)
@@ -358,7 +406,11 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 	acc := DecryptAES(accEnc, oldkKs)
 	accEnc = EncryptAES(acc, newkKs)
 
-	newfKs := store(accEnc)
+	newfKs, err := store(accEnc)
+	if err != nil {
+		return err
+
+	}
 
 	newCreds := new(Credentials)
 
@@ -398,24 +450,35 @@ func ChangePassword(uname string, oldpword string, newpword string) {
 
 	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	newfli := store(newFLi)
-	post(uname, newfli)
+	newfli, err := store(newFLi)
+	if err != nil {
+		return err
 
+	}
+	post(uname, newfli)
+	return nil
 }
 func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	A1 string, A2 string, A3 string) error {
-	oldfli := get(uname)
-	oldFli := retrieve(oldfli)
-	oldLogin := UnMarshalLogin(oldFli)
+	oldfli, err := get(uname)
+	if err != nil {
+		return err
+	}
+	oldFli, err := retrieve(oldfli)
+	oldLogin, err := UnMarshalLogin(oldFli)
+	if err != nil {
+		return err
+
+	}
 
 	oldkLi := EncryptPassword([]byte(pword), oldLogin.Salt)
 	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 	oldKW := DecryptAES(oldLogin.LoginCredentials.StorageKey, oldkLi)
 
-	accEnc := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
 	if len(accEnc) < 1 {
 		return errors.New("Invalid Password")
 	}
@@ -455,18 +518,34 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 
 	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	newfli := store(newFLi)
+	newfli, err := store(newFLi)
+	if err != nil {
+		return err
+
+	}
 	post(uname, newfli)
 	return nil
 }
 
 func Recover(uname string, newpword string, A1 string, A2 string, A3 string) error {
 	//Retrieve account information
-	fli := get(uname)
-	Fli := retrieve(fli)
-	oldLogin := UnMarshalLogin(Fli)
+	fli, err := get(uname)
+	if err != nil {
+		return err
+
+	}
+	Fli, err := retrieve(fli)
+	if err != nil {
+		return err
+
+	}
+	oldLogin, err := UnMarshalLogin(Fli)
+	if err != nil {
+		return err
+
+	}
 	//form arms and legs...
 	QK1 := EncryptPassword([]byte(A1), oldLogin.QSalt1)
 	QK2 := EncryptPassword([]byte(A2), oldLogin.QSalt2)
@@ -483,7 +562,11 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 
-	accEnc := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
+	if err != nil {
+		return err
+
+	}
 	if len(accEnc) < 1 {
 		return errors.New("Invalid Answers")
 	}
@@ -496,7 +579,11 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 	acc := DecryptAES(accEnc, oldkKs)
 	accEnc = EncryptAES(acc, newkKs)
 
-	newfKs := store(accEnc)
+	newfKs, err := store(accEnc)
+	if err != nil {
+		return err
+
+	}
 
 	newCreds := new(Credentials)
 
@@ -533,19 +620,23 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 
 	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	newfli := store(newFLi)
+	newfli, err := store(newFLi)
+	if err != nil {
+		return err
+
+	}
 	post(uname, newfli)
 	return nil
 
 }
 
-func UnMarshalLogin(data []byte) Login {
+func UnMarshalLogin(data []byte) (Login, error) {
 	loginpb := new(pb.Login)
 	err := proto.Unmarshal(data, loginpb)
 	if err != nil {
-		panic(err)
+		return *new(Login), err
 	}
 	creds := *new(Credentials)
 	//kLi := EncryptPassword([]byte(pword), loginpb.Salt)
@@ -570,7 +661,7 @@ func UnMarshalLogin(data []byte) Login {
 	login.QKenc1 = loginpb.QKenc1
 	login.QKenc2 = loginpb.QKenc2
 	login.QKenc3 = loginpb.QKenc3
-	return login
+	return login, nil
 
 }
 func MarshalLogin(login Login) ([]byte, error) {
