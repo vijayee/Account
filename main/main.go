@@ -2,28 +2,42 @@ package main
 
 import (
 	"fmt"
-	account "github.com/vijayee/Account"
-	//"time"
+	//account "github.com/vijayee/Account"
+	"flag"
+	ipfs "github.com/vijayee/Account/IPFSService"
+	"os"
+	"sync"
 )
 
+var host bool
+var peerid string
+
 func main() {
+	flag.BoolVar(&host, "host", false, "host ipfs service")
+	flag.StringVar(&peerid, "peerid", "", "peer id to connect to")
+	flag.Parse()
+	err := ipfs.InitiateNode()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	var wg sync.WaitGroup
+	if host {
+		fmt.Println("This Node Is Hosting")
+		wg.Add(1)
+		go func() {
+			err := ipfs.Listen()
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			wg.Done()
+		}()
+	}
 
-	err := account.Register("me@you.com", "golem", "What Color is the sky?", "What Color is the grass?", "What color is the moon?", "blue", "green", "white")
-	if err != nil {
-		fmt.Println(err)
+	if peerid != "" {
+		fmt.Printf("This Node Is Connecting to %s\n", peerid)
+		ipfs.Connect(peerid)
 	}
-	err = account.ChangeQuestions("me@you.com", "golem", "What Color is the moon?", "What Color is the sky?", "What color is the grass?", "white", "blue", "green")
-	if err != nil {
-		fmt.Println(err)
-	}
-	err = account.Recover("me@you.com", "blowfish", "white", "blue", "green")
-	if err != nil {
-		fmt.Println(err)
-	}
-	acc, err := account.LogOn("me@you.com", "blowfish")
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(acc.PrivKey, acc.PubKey, acc.RegistrationDate, err)
-
+	wg.Wait()
 }
