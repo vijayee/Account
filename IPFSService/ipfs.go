@@ -12,16 +12,8 @@ import (
 	"sync"
 )
 
-/*
-var nodeBuilder core.NodeBuilder
-var node *core.IpfsNode
-var cancel context.CancelFunc
-var ctx context.Context
-var connections map[string]net.Stream
-*/
-
 const (
-	defaultBufSize = 4096
+	defaultBufSize = 4096 //bufio default
 )
 
 type Service struct {
@@ -59,9 +51,6 @@ func NewService(name string, location string) (Service, error) {
 	}
 	return Service{name, node, cancel, ctx, nil, make(chan bool), false}, nil
 }
-func (s *Service) Connected() bool {
-	return s.connections != nil && len(s.connections) > 0
-}
 
 //Listen for connections from other peers
 func (s *Service) Listen() error {
@@ -95,8 +84,6 @@ func (s *Service) Listen() error {
 				delete(s.connections, key)
 				con.Close()
 			}()
-			//fmt.Fprintln(con, "Hello! This is whyrusleepings awesome ipfs service")
-			//		con.Conn().NewStream().
 			fmt.Printf("Connection from: %s\n", key)
 		}
 
@@ -114,7 +101,7 @@ func (s *Service) Connect(address string) {
 	}
 	fmt.Printf("I am peer %s dialing %s\n", s.node.Identity.Pretty(), target.Pretty())
 
-	con, err := corenet.Dial(s.node, target, "/app/whyrusleeping")
+	con, err := corenet.Dial(s.node, target, s.name)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -130,6 +117,8 @@ func (s *Service) Connect(address string) {
 		con.Close()
 	}()
 }
+
+//Listens for IO on the connections
 func (s *Service) handleCon(con connection) {
 	stream := con.conn
 	defer stream.Close()
@@ -215,7 +204,7 @@ func (s *Service) Send(peer string, message []byte) {
 	}
 }
 
-//Receive Message from as specific peer
+//Receive Message from as specific peer. This is a blocking method
 func (s *Service) Receive(peer string) []byte {
 	if s.IsConnectedTo(peer) {
 		return <-s.connections[peer].output
@@ -223,7 +212,7 @@ func (s *Service) Receive(peer string) []byte {
 	return nil
 }
 
-//Receive any message from any connected  Peer. This is a blocking method
+//Receive any message from any connected peer. This is a blocking method
 func (s *Service) ReceiveAny() []byte {
 	msg := make(chan []byte)
 	for _, con := range s.connections {
@@ -242,12 +231,17 @@ func (s *Service) IsConnectedTo(peer string) bool {
 	return ok
 }
 
-//Is the listner running
+//Is the service connected to any peers?
+func (s *Service) IsConnected() bool {
+	return s.connections != nil && len(s.connections) > 0
+}
+
+//Is the listener running?
 func (s *Service) IsListening() bool {
 	return s.isListening
 }
 
-//Stops the listner
+//Stops the listener
 func (s *Service) StopListening() {
 	select {
 	case s.stop <- true:

@@ -17,7 +17,7 @@ RUN cp container_daemon /usr/local/bin/start_account && \
 USER ipfs
 
 ENTRYPOINT ["/usr/local/bin/start_account"]
-CMD ["-host"]
+#CMD ["-host"]
 
 # build:    docker build -t go-ipfs .
 # run:      docker run -p 4001:4001 -p 5001:5001 go-ipfs:latest

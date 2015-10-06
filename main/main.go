@@ -32,16 +32,41 @@ func main() {
 				fmt.Println(err)
 				os.Exit(1)
 			}
-			go func() {
 
-			}()
 			wg.Done()
+		}()
+		go func() {
+			for {
+				if !service.IsListening() {
+					continue
+				}
+				if !service.IsConnected() {
+					continue
+				}
+				service.Broadcast([]byte("Looking for a deep connection"))
+				break
+			}
 		}()
 	}
 
 	if peerid != "" {
 		fmt.Printf("This Node Is Connecting to %s\n", peerid)
 		service.Connect(peerid)
+		wg.Add(1)
+		go func() {
+			for {
+				if !service.IsListening() {
+					continue
+				}
+				if !service.IsConnected() {
+					continue
+				}
+				message := service.ReceiveAny()
+				fmt.Printf("Received from Server: %s\n", message)
+				break
+			}
+			wg.Done()
+		}()
 	}
 	wg.Wait()
 }
