@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Account</title>
+    <link rel="stylesheet" href="stylesheets/app.css">
+    <script src="javascript/vendor/react/build/react.js" ></script>
+    <script src="javascript/vendor/jquery/jquery.js" ></script>
+    <script src="javascript/vendor/semantic/semantic.min.js" ></script>
+    <script src="javascript/app.js"></script>
+</head>
+<body>
+<div class="ui two column centered grid">
+    <div class="column"></div>
+    <div class="four column centered row">
+        <div class="column">
+            <h1 class="ui header">Account</h1>
+                <div id="LoginForm" class="ui segment login">
+                    <div class="ui input icon papaya pill">
+                        <input type="text" placeholder="Username">
+                        <i class="user icon"></i>
+                    </div>
+                    <div class="ui input icon papaya pill">
+                        <input type="password" placeholder="Password">
+                        <i class="privacy icon"></i>
+                    </div>
+                    <div class="ui input icon papaya pill">
+                        <input type="password" placeholder=" Confirm Password">
+                        <i class="privacy icon"></i>
+                    </div>
+                    <select id="Q1" name="gender" class="ui pill papaya dropdown">
+                        <option value="">Security Question 1</option>
+                        <option value="1">What's you Mother's maiden name?</option>
+                        <option value="2">What's your high school mascot?</option>
+                        <option value="3">What's your favorite color?</option>
+                    </select>
+                    <div class="ui input icon papaya pill">
+                        <input type="text" placeholder="Answer 1">
+                    </div>
+                    <select id="Q2" name="gender" class="ui pill papaya dropdown">
+                        <option value="">Security Question 2</option>
+                        <option value="1">What's your eye color?</option>
+                        <option value="2">Who's your favorite relative?</option>
+                        <option value="3">How many sister's do you have?</option>
+                    </select>
+                    <div class="ui input icon papaya pill">
+                        <input type="text" placeholder="Answer 2">
+                    </div>
+                    <select id="Q3" name="gender" class="ui pill papaya dropdown">
+                        <option value="">Security Question 3</option>
+                        <option value="1">What street did you grow up on?</option>
+                        <option value="2">Are you still Jenny from the block?</option>
+                        <option value="3">What is your favorite song?</option>
+                    </select>
+                    <div class="ui input icon papaya pill">
+                        <input type="text" placeholder="Answer 3">
+                    </div>
+                    <br>
+                    <div class="ui buttons pill">
+                        <div class="ui water button">Login</div>
+                        <div class="or"></div>
+                        <div class="ui pomegranate button">Register</div>
+                    </div>
+                    <script>
+                        $('.ui.dropdown').dropdown();
+                    </script>
+                </div>
+            <br>
+            <div class="ui horizontal divider">
+                <i class="users icon"></i>
+            </div>
+            <p>
+                <a>Register</a>
+            </p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

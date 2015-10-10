@@ -249,7 +249,7 @@ func write(hash string, data []byte) error {
 
 //Register a new account
 func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
-	A1 string, A2 string, A3 string) error {
+	A1 string, A2 string, A3 string, host string) error {
 	if stat, _ := os.Stat("login/" + uname); stat != nil {
 		return errors.New("Login is Already Registered")
 	}
@@ -265,7 +265,7 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	if err != nil {
 		return err
 	}
-
+	
 	kKs := NewSecretKey(defaultSecretKeySize)
 	accEnc := EncryptAES(accpb, kKs)
 	fKs, err := store(accEnc)
@@ -291,7 +291,9 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	creds.File = EncryptAES([]byte(fKs), kLi)
 	creds.Password = EncryptAES(kKs, kLi)
 	creds.StorageKey = EncryptAES(Kw, kLi)
-
+	//Create a device file when host is sent
+	
+	
 	login := *new(Login)
 	login.Salt = salt
 	login.LoginCredentials = creds
@@ -309,10 +311,17 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	login.QKenc3 = QKenc3
 
 	FLi, err := MarshalLogin(login)
-
 	if err != nil {
 		return err
 
+	}
+	if host != "" {
+		deviceLoginpb:= new(pb.DeviceLogin)
+		deviceLoginpb.DeviceKey:= NewSecretKey(defaultSecretKeySize)
+		deviceRecord := new(pb.DeviceRecord)	
+		deviceRecord.Password := EncryptAES(kKs, deviceLoginpb.DeviceKey)  
+		deviceRecord.File := EncryptAES(fKs, deviceLoginpb.DeviceKey)
+		
 	}
 	fli, err := store(FLi)
 	if err != nil {
@@ -336,7 +345,7 @@ func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 }
 
 //Login to an Account
-func LogOn(uname string, pword string) (Account, error) {
+func LogOn(uname string, pword string, host string) (Account, error) {
 	fli, err := get(uname)
 	if err != nil {
 		return *new(Account), err
@@ -750,3 +759,5 @@ func UnMarshalAccount(data []byte) (Account, error) {
 
 	return *acc, nil
 }
+func MarshalAccount(acc Account) ([]byte, error) {
+	}

@@ -13,6 +13,8 @@ It has these top-level messages:
 	Account
 	Credentials
 	Login
+	DeviceLogin
+	DeviceRecord
 */
 package account
 
@@ -358,6 +360,54 @@ func (m *Login) GetQSenc2() []byte {
 func (m *Login) GetQSenc3() []byte {
 	if m != nil {
 		return m.QSenc3
+	}
+	return nil
+}
+
+type DeviceLogin struct {
+	DeviceFile       []byte `protobuf:"bytes,1,opt" json:"DeviceFile,omitempty"`
+	DeviceKey        []byte `protobuf:"bytes,2,opt" json:"DeviceKey,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *DeviceLogin) Reset()         { *m = DeviceLogin{} }
+func (m *DeviceLogin) String() string { return proto.CompactTextString(m) }
+func (*DeviceLogin) ProtoMessage()    {}
+
+func (m *DeviceLogin) GetDeviceFile() []byte {
+	if m != nil {
+		return m.DeviceFile
+	}
+	return nil
+}
+
+func (m *DeviceLogin) GetDeviceKey() []byte {
+	if m != nil {
+		return m.DeviceKey
+	}
+	return nil
+}
+
+type DeviceRecord struct {
+	File             []byte `protobuf:"bytes,1,opt" json:"File,omitempty"`
+	Password         []byte `protobuf:"bytes,2,opt" json:"Password,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *DeviceRecord) Reset()         { *m = DeviceRecord{} }
+func (m *DeviceRecord) String() string { return proto.CompactTextString(m) }
+func (*DeviceRecord) ProtoMessage()    {}
+
+func (m *DeviceRecord) GetFile() []byte {
+	if m != nil {
+		return m.File
+	}
+	return nil
+}
+
+func (m *DeviceRecord) GetPassword() []byte {
+	if m != nil {
+		return m.Password
 	}
 	return nil
 }

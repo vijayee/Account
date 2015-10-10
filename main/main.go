@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	//account "github.com/vijayee/Account"
+	account "github.com/vijayee/Account"
 	"flag"
 	ipfs "github.com/vijayee/Account/IPFSService"
 	"os"
@@ -69,4 +69,5 @@ func main() {
 		}()
 	}
 	wg.Wait()
+	account.
 }

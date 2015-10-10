@@ -57,3 +57,11 @@ message Login{
 	optional bytes QSenc2 = 13;
 	optional bytes QSenc3 = 14;
 }
+message DeviceLogin{
+	optional bytes DeviceFile = 1;
+	optional bytes DeviceKey = 2; 
+}
+message DeviceRecord{
+	optional bytes File = 1;
+	optional bytes Password = 2;
+}
