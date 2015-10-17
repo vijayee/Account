@@ -1,4 +1,7 @@
 Account
 main/login
 main/main
+/login
+static/.idea
 .gitignore~
+Account.test

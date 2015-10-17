@@ -9,7 +9,7 @@ import (
 	//"encoding/base64"
 	"encoding/hex"
 	"errors"
-	//"fmt"
+	"fmt"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
@@ -49,10 +49,25 @@ type Login struct {
 	QSenc2           []byte
 	QSenc3           []byte
 }
+
 type Credentials struct {
 	Password   []byte
 	File       []byte
 	StorageKey []byte
+}
+
+type DeviceLogin struct {
+	DeviceFile []byte
+	DeviceKey  []byte
+}
+
+type DeviceRecord struct {
+	File     []byte
+	Password []byte
+}
+
+func (a *Account) String() string {
+	return fmt.Sprintf("Public Key: %s\nPrivate Key: %s\n Registration Date: %v", a.PubKey, a.PrivKey, a.RegistrationDate)
 }
 
 //Generate Public and a Private Key for a new User
@@ -249,13 +264,13 @@ func write(hash string, data []byte) error {
 
 //Register a new account
 func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
-	A1 string, A2 string, A3 string, host string) error {
+	A1 string, A2 string, A3 string) ([]byte, error) {
 	if stat, _ := os.Stat("login/" + uname); stat != nil {
-		return errors.New("Login is Already Registered")
+		return nil, errors.New("Login is Already Registered")
 	}
 	priv, pub, err := GenerateUserKeyPair()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	acc := *new(Account)
 	acc.PrivKey = priv
@@ -263,9 +278,9 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	acc.RegistrationDate = time.Now().Unix()
 	accpb, err := MarshalAccount(acc)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	
+
 	kKs := NewSecretKey(defaultSecretKeySize)
 	accEnc := EncryptAES(accpb, kKs)
 	fKs, err := store(accEnc)
@@ -292,8 +307,7 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	creds.Password = EncryptAES(kKs, kLi)
 	creds.StorageKey = EncryptAES(Kw, kLi)
 	//Create a device file when host is sent
-	
-	
+
 	login := *new(Login)
 	login.Salt = salt
 	login.LoginCredentials = creds
@@ -312,27 +326,36 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 
 	FLi, err := MarshalLogin(login)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
-	if host != "" {
-		deviceLoginpb:= new(pb.DeviceLogin)
-		deviceLoginpb.DeviceKey:= NewSecretKey(defaultSecretKeySize)
-		deviceRecord := new(pb.DeviceRecord)	
-		deviceRecord.Password := EncryptAES(kKs, deviceLoginpb.DeviceKey)  
-		deviceRecord.File := EncryptAES(fKs, deviceLoginpb.DeviceKey)
-		
+	deviceLogin := *new(DeviceLogin)
+	deviceLogin.DeviceKey = NewSecretKey(defaultSecretKeySize)
+	deviceRecord := *new(DeviceRecord)
+	deviceRecord.Password = EncryptAES(kKs, deviceLogin.DeviceKey)
+	deviceRecord.File = EncryptAES([]byte(fKs), deviceLogin.DeviceKey)
+
+	fdl, err := MarshalDeviceRecord(deviceRecord)
+	FDL, err := store(fdl)
+	if err != nil {
+		return nil, err
+	}
+	deviceLogin.DeviceFile = []byte(FDL)
+	dvl, err := MarshalDeviceLogin(deviceLogin)
+	if err != nil {
+		return nil, err
 	}
 	fli, err := store(FLi)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
+
 	err = put(uname, fli)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return dvl, nil
 }
 func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 	pad := len(data) % 3
@@ -345,7 +368,7 @@ func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 }
 
 //Login to an Account
-func LogOn(uname string, pword string, host string) (Account, error) {
+func LogOn(uname string, pword string) (Account, error) {
 	fli, err := get(uname)
 	if err != nil {
 		return *new(Account), err
@@ -380,20 +403,57 @@ func LogOn(uname string, pword string, host string) (Account, error) {
 	}
 	return account, err
 }
-func ChangePassword(uname string, oldpword string, newpword string) error {
+
+//Login to an Account with a DeviceLogin
+func DeviceLogOn(dvl []byte) (Account, error) {
+	deviceLogin, err := UnMarshalDeviceLogin(dvl)
+	if err != nil {
+		return *new(Account), err
+
+	}
+	FDL, err := retrieve(string(deviceLogin.DeviceFile))
+	if err != nil {
+		return *new(Account), err
+
+	}
+	deviceRecord, err := UnMarshalDeviceRecord(FDL)
+	if err != nil {
+		return *new(Account), err
+
+	}
+
+	kKs := DecryptAES(deviceRecord.Password, deviceLogin.DeviceKey)
+	fKs := DecryptAES(deviceRecord.File, deviceLogin.DeviceKey)
+
+	accEnc, err := retrieve(string(fKs))
+	if err != nil {
+		return *new(Account), err
+
+	}
+
+	acc := DecryptAES(accEnc, kKs)
+
+	account, err := UnMarshalAccount(acc)
+	if err != nil {
+		return *new(Account), err
+
+	}
+	return account, err
+}
+func ChangePassword(uname string, oldpword string, newpword string) ([]byte, error) {
 	oldfli, err := get(uname)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	oldFli, err := retrieve(oldfli)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	oldLogin, err := UnMarshalLogin(oldFli)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 
@@ -403,7 +463,7 @@ func ChangePassword(uname string, oldpword string, newpword string) error {
 
 	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 
@@ -417,9 +477,22 @@ func ChangePassword(uname string, oldpword string, newpword string) error {
 
 	newfKs, err := store(accEnc)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
+	deviceLogin := *new(DeviceLogin)
+	deviceLogin.DeviceKey = NewSecretKey(defaultSecretKeySize)
+	deviceRecord := *new(DeviceRecord)
+	deviceRecord.Password = EncryptAES(newkKs, deviceLogin.DeviceKey)
+	deviceRecord.File = EncryptAES([]byte(newfKs), deviceLogin.DeviceKey)
+
+	fdl, err := MarshalDeviceRecord(deviceRecord)
+	FDL, err := store(fdl)
+	if err != nil {
+		return nil, err
+	}
+	deviceLogin.DeviceFile = []byte(FDL)
+	dvl, err := MarshalDeviceLogin(deviceLogin)
 
 	newCreds := new(Credentials)
 
@@ -459,15 +532,15 @@ func ChangePassword(uname string, oldpword string, newpword string) error {
 
 	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newfli, err := store(newFLi)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	post(uname, newfli)
-	return nil
+	return dvl, nil
 }
 func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	A1 string, A2 string, A3 string) error {
@@ -538,21 +611,21 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 	return nil
 }
 
-func Recover(uname string, newpword string, A1 string, A2 string, A3 string) error {
+func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]byte, error) {
 	//Retrieve account information
 	fli, err := get(uname)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	Fli, err := retrieve(fli)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	oldLogin, err := UnMarshalLogin(Fli)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	//form arms and legs...
@@ -573,11 +646,11 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 
 	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	if len(accEnc) < 1 {
-		return errors.New("Invalid Answers")
+		return nil, errors.New("Invalid Answers")
 	}
 
 	newSalt := NewSecretKey(defaultSaltSize)
@@ -590,8 +663,25 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 
 	newfKs, err := store(accEnc)
 	if err != nil {
-		return err
+		return nil, err
+	}
 
+	deviceLogin := *new(DeviceLogin)
+	deviceLogin.DeviceKey = NewSecretKey(defaultSecretKeySize)
+	deviceRecord := *new(DeviceRecord)
+	deviceRecord.Password = EncryptAES(newkKs, deviceLogin.DeviceKey)
+	deviceRecord.File = EncryptAES([]byte(newfKs), deviceLogin.DeviceKey)
+
+	fdl, err := MarshalDeviceRecord(deviceRecord)
+	FDL, err := store(fdl)
+	if err != nil {
+		return nil, err
+	}
+
+	deviceLogin.DeviceFile = []byte(FDL)
+	dvl, err := MarshalDeviceLogin(deviceLogin)
+	if err != nil {
+		return nil, err
 	}
 
 	newCreds := new(Credentials)
@@ -629,15 +719,15 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) err
 
 	newFLi, err := MarshalLogin(newlogin)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newfli, err := store(newFLi)
 	if err != nil {
-		return err
+		return nil, err
 
 	}
 	post(uname, newfli)
-	return nil
+	return dvl, nil
 
 }
 
@@ -759,5 +849,31 @@ func UnMarshalAccount(data []byte) (Account, error) {
 
 	return *acc, nil
 }
-func MarshalAccount(acc Account) ([]byte, error) {
-	}
+func MarshalDeviceLogin(dl DeviceLogin) ([]byte, error) {
+	dlpb := new(pb.DeviceLogin)
+	dlpb.DeviceFile = dl.DeviceFile
+	dlpb.DeviceKey = dl.DeviceKey
+	return proto.Marshal(dlpb)
+}
+func UnMarshalDeviceLogin(data []byte) (DeviceLogin, error) {
+	dl := new(DeviceLogin)
+	dlpb := new(pb.DeviceLogin)
+	proto.Unmarshal(data, dlpb)
+	dl.DeviceFile = dlpb.DeviceFile
+	dl.DeviceKey = dlpb.DeviceKey
+	return *dl, nil
+}
+func MarshalDeviceRecord(dr DeviceRecord) ([]byte, error) {
+	drpb := new(pb.DeviceRecord)
+	drpb.File = dr.File
+	drpb.Password = dr.Password
+	return proto.Marshal(drpb)
+}
+func UnMarshalDeviceRecord(data []byte) (DeviceRecord, error) {
+	dr := new(DeviceRecord)
+	drpb := new(pb.DeviceRecord)
+	proto.Unmarshal(data, drpb)
+	dr.File = drpb.File
+	dr.Password = drpb.Password
+	return *dr, nil
+}
