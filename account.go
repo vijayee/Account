@@ -265,6 +265,11 @@ func write(hash string, data []byte) error {
 //Register a new account
 func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	A1 string, A2 string, A3 string) ([]byte, error) {
+
+	if uname == "" || pword == "" || Q1 == "" || Q2 == "" || Q3 == "" ||
+		A1 == "" || A2 == "" || A3 == "" {
+		return nil, errors.New("Fields must no be blank.")
+	}
 	if stat, _ := os.Stat("login/" + uname); stat != nil {
 		return nil, errors.New("Login is Already Registered")
 	}
@@ -369,6 +374,9 @@ func splitMeThreeTimes(data []byte) ([]byte, []byte, []byte) {
 
 //Login to an Account
 func LogOn(uname string, pword string) (Account, error) {
+	if uname == "" || pword == "" {
+		return *new(Account), errors.New("Fields must not be blank.")
+	}
 	fli, err := get(uname)
 	if err != nil {
 		return *new(Account), err
@@ -406,6 +414,10 @@ func LogOn(uname string, pword string) (Account, error) {
 
 //Login to an Account with a DeviceLogin
 func DeviceLogOn(dvl []byte) (Account, error) {
+	if dvl == nil || len(dvl) == 0 {
+		return *new(Account), errors.New("Fields must not be blank.")
+	}
+
 	deviceLogin, err := UnMarshalDeviceLogin(dvl)
 	if err != nil {
 		return *new(Account), err
@@ -441,6 +453,9 @@ func DeviceLogOn(dvl []byte) (Account, error) {
 	return account, err
 }
 func ChangePassword(uname string, oldpword string, newpword string) ([]byte, error) {
+	if uname == "" || oldpword == "" || newpword == "" {
+		return nil, errors.New("Fields must not be blank.")
+	}
 	oldfli, err := get(uname)
 	if err != nil {
 		return nil, err
@@ -544,6 +559,10 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 }
 func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	A1 string, A2 string, A3 string) error {
+	if uname == "" || pword == "" || Q1 == "" || Q2 == "" || Q3 == "" ||
+		A1 == "" || A2 == "" || A3 == "" {
+		return errors.New("Fields must not be blank.")
+	}
 	oldfli, err := get(uname)
 	if err != nil {
 		return err
@@ -612,6 +631,9 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 }
 
 func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]byte, error) {
+	if uname == "" || newpword == "" || A1 == "" || A2 == "" || A3 == "" {
+		return nil, errors.New("Fields must not be blank.")
+	}
 	//Retrieve account information
 	fli, err := get(uname)
 	if err != nil {

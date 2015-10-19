@@ -2,27 +2,25 @@ package account
 
 import (
 	"github.com/emicklei/go-restful"
-	//"strings"
-	"fmt"
 	"net/http"
 )
 
 type logOnRequest struct {
-	username string
-	password string
+	Username string
+	Password string
 }
 type logOnResponse struct {
 	Token []byte
 }
-type registrationRequst struct {
-	username  string
-	password  string
-	question1 string
-	question2 string
-	question3 string
-	answer1   string
-	answer2   string
-	answer3   string
+type registrationRequest struct {
+	Username  string
+	Password  string
+	Question1 string
+	Question2 string
+	Question3 string
+	Answer1   string
+	Answer2   string
+	Answer3   string
 }
 
 type registrationResponse struct {
@@ -30,36 +28,37 @@ type registrationResponse struct {
 }
 
 type changePasswordRequest struct {
-	username    string
-	password    string
-	newPassword string
+	Username    string
+	Password    string
+	NewPassword string
 }
 type changePasswordResponse struct {
 	Device []byte
 }
 type changeQuestionsRequest struct {
-	username  string
-	password  string
-	question1 string
-	question2 string
-	question3 string
-	answer1   string
-	answer2   string
-	answer3   string
+	Username  string
+	Password  string
+	Question1 string
+	Question2 string
+	Question3 string
+	Answer1   string
+	Answer2   string
+	Answer3   string
 }
 type recoverRequest struct {
-	username    string
-	newPassword string
-	answer1     string
-	answer2     string
-	answer3     string
+	Username    string
+	NewPassword string
+	Answer1     string
+	Answer2     string
+	Answer3     string
 }
 
 type recoverResponse struct {
 	Device []byte
 }
+
 type deviceLoginRequest struct {
-	device []byte
+	Device []byte
 }
 
 func NewAPI() *restful.WebService {
@@ -69,7 +68,7 @@ func NewAPI() *restful.WebService {
 	accountAPI.Produces(restful.MIME_JSON)
 	accountAPI.Route(accountAPI.PUT("").To(createAccount))
 	accountAPI.Route(accountAPI.POST("").To(loginAccount))
-	accountAPI.Route(accountAPI.GET("/device").To(deviceLogin))
+	accountAPI.Route(accountAPI.POST("/device").To(deviceLogin))
 	accountAPI.Route(accountAPI.POST("/recover").To(recoverAccount))
 	accountAPI.Route(accountAPI.PATCH("/questions").To(changeQuestions))
 	accountAPI.Route(accountAPI.PATCH("").To(changePassword))
@@ -77,16 +76,16 @@ func NewAPI() *restful.WebService {
 }
 
 func createAccount(request *restful.Request, response *restful.Response) {
-	registration := new(registrationRequst)
+	registration := new(registrationRequest)
 	err := request.ReadEntity(&registration)
+
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 	} else {
-		fmt.Printf("Username: %s\n", registration.username)
 		registrationRes := new(registrationResponse)
-		registrationRes.Device, err = Register(registration.username, registration.password, registration.question1,
-			registration.question2, registration.question3, registration.answer1,
-			registration.answer2, registration.answer3)
+		registrationRes.Device, err = Register(registration.Username, registration.Password, registration.Question1,
+			registration.Question2, registration.Question3, registration.Answer1,
+			registration.Answer2, registration.Answer3)
 		if err != nil {
 			response.WriteError(http.StatusInternalServerError, err)
 		} else {
@@ -102,7 +101,7 @@ func loginAccount(request *restful.Request, response *restful.Response) {
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 	} else {
-		_, err = LogOn(login.username, login.password)
+		_, err = LogOn(login.Username, login.Password)
 		if err != nil {
 			response.WriteError(http.StatusInternalServerError, err)
 		} else {
@@ -119,14 +118,15 @@ func changePassword(request *restful.Request, response *restful.Response) {
 	err := request.ReadEntity(&change)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
+	} else {
+		changeRes := new(changePasswordResponse)
+		changeRes.Device, err = ChangePassword(change.Username, change.Password, change.NewPassword)
+		if err != nil {
+			response.WriteError(http.StatusInternalServerError, err)
+		} else {
+			response.WriteEntity(changeRes)
+		}
 	}
-	changeRes := new(changePasswordResponse)
-	changeRes.Device, err = ChangePassword(change.username, change.password, change.newPassword)
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-
-	response.WriteEntity(changeRes)
 }
 
 func changeQuestions(request *restful.Request, response *restful.Response) {
@@ -134,12 +134,15 @@ func changeQuestions(request *restful.Request, response *restful.Response) {
 	err := request.ReadEntity(&change)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
-	}
-	err = ChangeQuestions(change.username, change.password, change.question1,
-		change.question2, change.question3, change.answer1,
-		change.answer2, change.answer3)
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
+	} else {
+
+		err = ChangeQuestions(change.Username, change.Password, change.Question1,
+			change.Question2, change.Question3, change.Answer1,
+			change.Answer2, change.Answer3)
+		if err != nil {
+			response.WriteError(http.StatusInternalServerError, err)
+		}
+
 	}
 }
 
@@ -150,8 +153,8 @@ func recoverAccount(request *restful.Request, response *restful.Response) {
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 	recoverRes := new(recoverResponse)
-	recoverRes.Device, err = Recover(recovery.username, recovery.newPassword, recovery.answer1,
-		recovery.answer2, recovery.answer3)
+	recoverRes.Device, err = Recover(recovery.Username, recovery.NewPassword, recovery.Answer1,
+		recovery.Answer2, recovery.Answer3)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 	}
@@ -163,13 +166,15 @@ func deviceLogin(request *restful.Request, response *restful.Response) {
 	err := request.ReadEntity(&login)
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
+	} else {
+		_, err = DeviceLogOn(login.Device)
+		if err != nil {
+			response.WriteError(http.StatusInternalServerError, err)
+		} else {
+			loginRes := new(logOnResponse)
+			loginRes.Token = []byte("Let em in, Frank")
+			response.WriteEntity(loginRes)
+		}
 	}
-	_, err = DeviceLogOn(login.device)
-	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	loginRes := new(logOnResponse)
-	loginRes.Token = []byte("Let em in, Frank")
-	response.WriteEntity(loginRes)
 
 }
