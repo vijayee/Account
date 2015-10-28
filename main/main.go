@@ -71,7 +71,7 @@ func main() {
 		}()
 	}
 	wg.Wait()
-
+	account.InitLocalStorage()
 	wsContainer := restful.NewContainer()
 	wsContainer.Add(account.NewAPI())
 
@@ -83,7 +83,7 @@ func main() {
 	wsContainer.Filter(cors.Filter)
 
 	wsContainer.Filter(wsContainer.OPTIONSFilter)
-	fmt.Printf("start listening on localhost:8080\n")
-	server := &http.Server{Addr: ":8080", Handler: wsContainer}
+	fmt.Printf("Account API listening on localhost:6060\n")
+	server := &http.Server{Addr: ":6060", Handler: wsContainer}
 	server.ListenAndServe()
 }

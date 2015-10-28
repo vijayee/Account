@@ -30,6 +30,7 @@ func TestMain(m *testing.M) {
 	singleUser.answer2 = random.Noun()
 	singleUser.question3 = random.Adjective()
 	singleUser.answer3 = random.Noun()
+	InitLocalStorage()
 	os.Exit(m.Run())
 
 }

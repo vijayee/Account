@@ -7,13 +7,11 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	//"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipfs/p2p/crypto"
 	keypb "github.com/ipfs/go-ipfs/p2p/crypto/internal/pb"
-	multihash "github.com/jbenet/go-multihash"
 	pb "github.com/vijayee/Account/pb"
 	"io"
 	"os"
@@ -125,142 +123,6 @@ func EncryptPassword(pass []byte, salt []byte) []byte {
 	}
 	return ep
 }
-func store(data []byte) (string, error) {
-	var ch []byte
-	var err error
-	if len(data) > 120 {
-		ch, err = multihash.EncodeName(data[:120], "sha1")
-		if err != nil {
-			return "", err
-		}
-	} else {
-		ch, err = multihash.EncodeName(data, "sha1")
-		if err != nil {
-			return "", err
-		}
-	}
-
-	can := hex.EncodeToString(ch)
-	if _, err := os.Stat("login"); os.IsNotExist(err) {
-		os.Mkdir("login", 0777)
-	}
-	filename := "login/" + can
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		file, err := os.Create(filename)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-		_, err = file.Write(data)
-		if err != nil {
-			return "", err
-		}
-
-		file.Sync()
-		return can, nil
-	} else {
-		return "", errors.New("File Exists")
-	}
-
-	return "", nil
-}
-func retrieve(hash string) ([]byte, error) {
-	filename := "login/" + hash
-	stat, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return nil, err
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	var data []byte
-	data = make([]byte, stat.Size())
-	_, err = file.Read(data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-func put(key string, value string) error {
-	if _, err := os.Stat("login"); os.IsNotExist(err) {
-		os.Mkdir("login", 0777)
-	}
-	filename := "login/" + key
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		file, err := os.Create(filename)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		_, err = file.Write([]byte(value))
-		if err != nil {
-			return err
-		}
-		file.Sync()
-	}
-	return nil
-}
-func get(key string) (string, error) {
-	filename := "login/" + key
-	stat, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return "", err
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	var data []byte
-	data = make([]byte, stat.Size())
-	_, err = file.Read(data)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-//Change DHT value
-func post(key string, value string) error {
-	filename := "login/" + key
-	_, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return err
-	}
-	file, err := os.OpenFile(filename, os.O_RDWR, 0777)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = file.Write([]byte(value))
-	if err != nil {
-		return err
-	}
-	file.Sync()
-	return nil
-}
-
-// Change storage value
-func write(hash string, data []byte) error {
-	filename := "login/" + hash
-	_, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return err
-	}
-	file, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	_, err = file.Write([]byte(data))
-	if err != nil {
-		return err
-	}
-	file.Sync()
-	return nil
-}
 
 //Register a new account
 func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
@@ -288,7 +150,7 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 
 	kKs := NewSecretKey(defaultSecretKeySize)
 	accEnc := EncryptAES(accpb, kKs)
-	fKs, err := store(accEnc)
+	fKs, err := accountstore.Store(accEnc)
 	salt := NewSecretKey(defaultSaltSize)
 	kLi := EncryptPassword([]byte(pword), salt)
 	Qs1, Qs2, Qs3 := splitMeThreeTimes(kLi)
@@ -341,7 +203,7 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	deviceRecord.File = EncryptAES([]byte(fKs), deviceLogin.DeviceKey)
 
 	fdl, err := MarshalDeviceRecord(deviceRecord)
-	FDL, err := store(fdl)
+	FDL, err := accountstore.Store(fdl)
 	if err != nil {
 		return nil, err
 	}
@@ -350,13 +212,13 @@ func Register(uname string, pword string, Q1 string, Q2 string, Q3 string,
 	if err != nil {
 		return nil, err
 	}
-	fli, err := store(FLi)
+	fli, err := accountstore.Store(FLi)
 	if err != nil {
 		return nil, err
 
 	}
 
-	err = put(uname, fli)
+	err = accountstore.Put(uname, fli)
 	if err != nil {
 		return nil, err
 	}
@@ -377,13 +239,13 @@ func LogOn(uname string, pword string) (Account, error) {
 	if uname == "" || pword == "" {
 		return *new(Account), errors.New("Fields must not be blank.")
 	}
-	fli, err := get(uname)
+	fli, err := accountstore.Get(uname)
 	if err != nil {
 		return *new(Account), err
 
 	}
 
-	Fli, err := retrieve(fli)
+	Fli, err := accountstore.Retrieve(fli)
 	if err != nil {
 		return *new(Account), err
 
@@ -396,7 +258,7 @@ func LogOn(uname string, pword string) (Account, error) {
 	kLi := EncryptPassword([]byte(pword), login.Salt)
 	fKs := DecryptAES(login.LoginCredentials.File, kLi)
 	kKs := DecryptAES(login.LoginCredentials.Password, kLi)
-	accEnc, err := retrieve(string(fKs))
+	accEnc, err := accountstore.Retrieve(string(fKs))
 	if err != nil {
 		return *new(Account), err
 
@@ -423,7 +285,7 @@ func DeviceLogOn(dvl []byte) (Account, error) {
 		return *new(Account), err
 
 	}
-	FDL, err := retrieve(string(deviceLogin.DeviceFile))
+	FDL, err := accountstore.Retrieve(string(deviceLogin.DeviceFile))
 	if err != nil {
 		return *new(Account), err
 
@@ -437,7 +299,7 @@ func DeviceLogOn(dvl []byte) (Account, error) {
 	kKs := DecryptAES(deviceRecord.Password, deviceLogin.DeviceKey)
 	fKs := DecryptAES(deviceRecord.File, deviceLogin.DeviceKey)
 
-	accEnc, err := retrieve(string(fKs))
+	accEnc, err := accountstore.Retrieve(string(fKs))
 	if err != nil {
 		return *new(Account), err
 
@@ -456,12 +318,12 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 	if uname == "" || oldpword == "" || newpword == "" {
 		return nil, errors.New("Fields must not be blank.")
 	}
-	oldfli, err := get(uname)
+	oldfli, err := accountstore.Get(uname)
 	if err != nil {
 		return nil, err
 
 	}
-	oldFli, err := retrieve(oldfli)
+	oldFli, err := accountstore.Retrieve(oldfli)
 	if err != nil {
 		return nil, err
 
@@ -476,7 +338,7 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 
-	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := accountstore.Retrieve(string(oldFks)) //joke gets funnier
 	if err != nil {
 		return nil, err
 
@@ -490,7 +352,7 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 	acc := DecryptAES(accEnc, oldkKs)
 	accEnc = EncryptAES(acc, newkKs)
 
-	newfKs, err := store(accEnc)
+	newfKs, err := accountstore.Store(accEnc)
 	if err != nil {
 		return nil, err
 
@@ -502,7 +364,7 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 	deviceRecord.File = EncryptAES([]byte(newfKs), deviceLogin.DeviceKey)
 
 	fdl, err := MarshalDeviceRecord(deviceRecord)
-	FDL, err := store(fdl)
+	FDL, err := accountstore.Store(fdl)
 	if err != nil {
 		return nil, err
 	}
@@ -549,12 +411,12 @@ func ChangePassword(uname string, oldpword string, newpword string) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	newfli, err := store(newFLi)
+	newfli, err := accountstore.Store(newFLi)
 	if err != nil {
 		return nil, err
 
 	}
-	post(uname, newfli)
+	accountstore.Post(uname, newfli)
 	return dvl, nil
 }
 func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string,
@@ -563,11 +425,11 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 		A1 == "" || A2 == "" || A3 == "" {
 		return errors.New("Fields must not be blank.")
 	}
-	oldfli, err := get(uname)
+	oldfli, err := accountstore.Get(uname)
 	if err != nil {
 		return err
 	}
-	oldFli, err := retrieve(oldfli)
+	oldFli, err := accountstore.Retrieve(oldfli)
 	oldLogin, err := UnMarshalLogin(oldFli)
 	if err != nil {
 		return err
@@ -579,7 +441,7 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 	oldKW := DecryptAES(oldLogin.LoginCredentials.StorageKey, oldkLi)
 
-	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := accountstore.Retrieve(string(oldFks)) //joke gets funnier
 	if len(accEnc) < 1 {
 		return errors.New("Invalid Password")
 	}
@@ -621,12 +483,12 @@ func ChangeQuestions(uname string, pword string, Q1 string, Q2 string, Q3 string
 	if err != nil {
 		return err
 	}
-	newfli, err := store(newFLi)
+	newfli, err := accountstore.Store(newFLi)
 	if err != nil {
 		return err
 
 	}
-	post(uname, newfli)
+	accountstore.Post(uname, newfli)
 	return nil
 }
 
@@ -635,12 +497,12 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]
 		return nil, errors.New("Fields must not be blank.")
 	}
 	//Retrieve account information
-	fli, err := get(uname)
+	fli, err := accountstore.Get(uname)
 	if err != nil {
 		return nil, err
 
 	}
-	Fli, err := retrieve(fli)
+	Fli, err := accountstore.Retrieve(fli)
 	if err != nil {
 		return nil, err
 
@@ -666,7 +528,7 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]
 	oldFks := DecryptAES(oldLogin.LoginCredentials.File, oldkLi) //there is a joke somewhere in this variable but I didn't make it
 	oldkKs := DecryptAES(oldLogin.LoginCredentials.Password, oldkLi)
 
-	accEnc, err := retrieve(string(oldFks)) //joke gets funnier
+	accEnc, err := accountstore.Retrieve(string(oldFks)) //joke gets funnier
 	if err != nil {
 		return nil, err
 
@@ -683,7 +545,7 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]
 	acc := DecryptAES(accEnc, oldkKs)
 	accEnc = EncryptAES(acc, newkKs)
 
-	newfKs, err := store(accEnc)
+	newfKs, err := accountstore.Store(accEnc)
 	if err != nil {
 		return nil, err
 	}
@@ -695,7 +557,7 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]
 	deviceRecord.File = EncryptAES([]byte(newfKs), deviceLogin.DeviceKey)
 
 	fdl, err := MarshalDeviceRecord(deviceRecord)
-	FDL, err := store(fdl)
+	FDL, err := accountstore.Store(fdl)
 	if err != nil {
 		return nil, err
 	}
@@ -743,12 +605,12 @@ func Recover(uname string, newpword string, A1 string, A2 string, A3 string) ([]
 	if err != nil {
 		return nil, err
 	}
-	newfli, err := store(newFLi)
+	newfli, err := accountstore.Store(newFLi)
 	if err != nil {
 		return nil, err
 
 	}
-	post(uname, newfli)
+	accountstore.Post(uname, newfli)
 	return dvl, nil
 
 }
